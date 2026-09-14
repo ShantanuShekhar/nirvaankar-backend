@@ -1,23 +1,40 @@
-# Multi-stage build for nirvaankar-marketplace-backend.
-# Unit + ArchUnit tests run during the image build.
-# Testcontainers integration tests are excluded (-Pdocker-build) because they
-# require a Docker daemon and must not nest Docker-in-Docker here.
+# syntax=docker/dockerfile:1
 
+# -----------------------------------------------------------------------------
+# Stage 1 — Build JAR using Maven
+# -----------------------------------------------------------------------------
 FROM maven:3.9.9-eclipse-temurin-17 AS build
-WORKDIR /workspace
 
-COPY pom.xml .
-COPY src ./src
-
-RUN mvn -B -Pdocker-build clean package
-
-FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-RUN groupadd --system app && useradd --system --gid app app
-USER app
+# Copy pom and download dependencies (cache layer)
+COPY pom.xml .
+RUN mvn -B -q dependency:go-offline -DskipTests
 
-COPY --from=build /workspace/target/marketplace-backend-0.1.0-SNAPSHOT.jar /app/app.jar
+# Copy source code
+COPY src ./src
 
+# Build jar
+RUN mvn -B -q -DskipTests package \
+    && cp "$(ls target/*.jar | grep -v '\.original$' | head -n 1)" /app/app.jar
+
+
+# -----------------------------------------------------------------------------
+# Stage 2 — Run with lightweight JRE
+# -----------------------------------------------------------------------------
+FROM eclipse-temurin:17-jre AS runtime
+
+ENV LANG=C.UTF-8 \
+    TZ=UTC \
+    JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+
+WORKDIR /app
+
+# Copy jar from build stage
+COPY --from=build /app/app.jar ./nirvaankar.jar
+
+# Expose port
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+# Run app
+ENTRYPOINT ["java", "-jar", "nirvaankar.jar"]

@@ -1,12 +1,31 @@
 services:
+  app:
+    image: 85216048m/nirvaankar:latest
+    container_name: nirvaankar-app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   mysql:
     image: mysql:8.4
     container_name: nirvaankar-mysql
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: nirvaankar
-      MYSQL_USER: nirvaankar
-      MYSQL_PASSWORD: nirvaankar
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       TZ: UTC
     command:
       - --character-set-server=utf8mb4
@@ -18,13 +37,14 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       retries: 20
 
   redis:
     image: redis:7-alpine
     container_name: nirvaankar-redis
+    restart: always
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
