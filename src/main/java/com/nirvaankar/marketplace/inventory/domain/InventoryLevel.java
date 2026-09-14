@@ -34,5 +34,5 @@ public class InventoryLevel {
 
     /** JPA / Hibernate require an accessible no-args constructor. */
     protected InventoryLevel() {
-    } 
+    }
 }
