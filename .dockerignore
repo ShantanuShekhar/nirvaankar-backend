@@ -1,0 +1,12 @@
+target/
+.secrets/
+.settings/
+.idea/
+.vscode/
+*.iml
+*.pem
+*.log
+.git/
+.gitignore
+README.md
+docker-compose.yml

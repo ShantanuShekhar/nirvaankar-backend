@@ -1,0 +1,165 @@
+# ---------------------------------------------------------------------------
+#  Nirvaankar Marketplace - base configuration
+#
+#  THREAD BUDGET (see common/config/AsyncConfig.java):
+#    outbox      max 8   |  notification max 6  |  searchIndex max 4
+#    audit       max 4   |  webhookRetry max 4  |  report      max 2
+#    Of these, the pools that touch the database are: outbox, audit,
+#    searchIndex, webhookRetry  ->  8 + 4 + 4 + 4 = 20 worker threads.
+#    Tomcat request threads that touch the DB: bounded at 50 by
+#    server.tomcat.threads.max, but they queue on Hikari rather than
+#    deadlocking because no request holds two connections at once.
+#    Hikari maximum-pool-size is therefore 30: enough that the 20 async
+#    workers can never starve each other, with headroom for requests.
+#    If you add an executor, update this comment AND the Hikari size.
+# ---------------------------------------------------------------------------
+spring:
+  application:
+    name: nirvaankar-marketplace
+  config:
+    import:
+      - optional:file:.secrets/razorpay.yml
+      - optional:file:.secrets/aws.yml
+      - optional:file:.secrets/whatsapp.properties
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/nirvaankar?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&rewriteBatchedStatements=true
+    username: root
+    password: mysql
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 5
+      connection-timeout: 10000
+      max-lifetime: 1200000
+      pool-name: nirvaankar-cp
+
+  jpa:
+    open-in-view: false              # MANDATORY. Never true.
+    hibernate:
+      ddl-auto: update             # Flyway owns the schema.
+    properties:
+      hibernate:
+        default_batch_fetch_size: 50
+        jdbc:
+          batch_size: 50
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        query:
+          fail_on_pagination_over_collection_fetch: true
+        generate_statistics: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # Short on purpose: login must not hang if Redis is dead. Fail the
+      # cache call, then authenticate against MySQL.
+      timeout: 250ms
+      connect-timeout: 250ms
+      lettuce:
+        shutdown-timeout: 100ms
+
+  jackson:
+    time-zone: UTC
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  error:
+    include-stacktrace: never
+  tomcat:
+    threads:
+      max: 50
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+nirvaankar:
+  brand:
+    name: Nirvaankar
+    tagline: Handmade. Natural. Nothing else.
+    support-email: care@nirvaankar.com
+  security:
+    jwt:
+      issuer: https://api.nirvaankar.com
+      access-token-ttl: PT15M
+      # RSA keys. Leave blank in dev -> an ephemeral keypair is generated at
+      # startup (tokens die with the process, which is what you want locally).
+      private-key-pem: ${NIRVAANKAR_JWT_PRIVATE_KEY:}
+      public-key-pem: ${NIRVAANKAR_JWT_PUBLIC_KEY:}
+    refresh-token:
+      ttl: P30D
+    password:
+      bcrypt-strength: 12
+  otp:
+    ttl: PT5M
+    max-attempts: 5
+    length: 6
+    resend-cooldown: PT1M
+    # dev only: echoes the OTP in the response so you can test without an SMS gateway
+    expose-in-response: false
+  idempotency:
+    ttl: PT24H
+  rate-limit:
+    otp-request-per-hour: 5
+    login-attempts-per-15min: 10
+  shipping:
+    # Schema has no rate table; these are the only shipping rules.
+    flat-rate-minor: 100          # ₹49.00
+    free-above-minor: 99900        # free shipping at ₹999.00 subtotal
+    currency: INR
+    origin-state: Maharashtra      # used to choose CGST+SGST vs IGST
+  payment:
+    gateway: ${NIRVAANKAR_PAYMENT_GATEWAY:razorpay}
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+    reservation-ttl: PT15M
+  catalog:
+    # ₹1,00,000.00 default ceiling for selling price (paise)
+    max-selling-price-minor: 10000000
+    # Selling price cannot be more than this % below MRP
+    max-discount-percent-from-mrp: 70
+    max-images-per-product: 5
+    max-image-bytes: 5242880
+  s3:
+    region: ${AWS_REGION:ap-south-1}
+    bucket: ${NIRVAANKAR_S3_BUCKET:nirvaankar}
+    prefix: products/
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+    max-file-bytes: 5242880
+  whatsapp:
+    # Meta webhook verify token and app secret. Override via env in every
+    # non-local environment. The local default exists only so GET /webhook
+    # can be subscribed through a tunnel such as loca.lt.
+    webhook-verify-token: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:my_secret_whatsapp_token_123}
+    app-secret: ${WHATSAPP_APP_SECRET:}
+
+logging:
+  level:
+    com.nirvaankar: INFO
+    org.hibernate.SQL: WARN

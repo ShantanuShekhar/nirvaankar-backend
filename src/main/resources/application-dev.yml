@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    properties:
+      hibernate:
+        generate_statistics: true
+        format_sql: true
+  config:
+    import:
+      - optional:file:.secrets/razorpay.yml
+      - optional:file:.secrets/aws.yml
+      - optional:file:.secrets/whatsapp.properties
+
+nirvaankar:
+  otp:
+    expose-in-response: true
+
+logging:
+  level:
+    com.nirvaankar: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE

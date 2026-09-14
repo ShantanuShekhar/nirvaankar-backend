@@ -1,0 +1,100 @@
+-- ===========================================================================
+--  Monthly RANGE partitioning on the four tables whose volume grows linearly
+--  and which carry a retention policy (doc §6.2).
+--
+--  MySQL rules that shape this file:
+--   * the partition column must be part of EVERY unique key, which is why
+--     orders, audit_logs, ledger_entries and search_queries were created with
+--     a composite primary key ending in the timestamp;
+--   * a partitioned table cannot participate in a foreign key at all, in
+--     either direction, so inventory_transactions drops its FKs here and the
+--     inventory service becomes the sole guarantor of those references.
+--
+--  Partitions are created a year ahead. A monthly scheduled job adds the next
+--  one and detaches anything past retention; if that job ever stops, inserts
+--  beyond the last partition fail loudly rather than landing somewhere wrong.
+-- ===========================================================================
+
+ALTER TABLE inventory_transactions DROP FOREIGN KEY fk_inventory_transactions_variant;
+ALTER TABLE inventory_transactions DROP FOREIGN KEY fk_inventory_transactions_location;
+ALTER TABLE inventory_transactions DROP PRIMARY KEY, ADD PRIMARY KEY (id, created_at);
+
+ALTER TABLE orders PARTITION BY RANGE COLUMNS (placed_at) (
+    PARTITION p2026_09 VALUES LESS THAN ('2026-10-01'),
+    PARTITION p2026_10 VALUES LESS THAN ('2026-11-01'),
+    PARTITION p2026_11 VALUES LESS THAN ('2026-12-01'),
+    PARTITION p2026_12 VALUES LESS THAN ('2027-01-01'),
+    PARTITION p2027_01 VALUES LESS THAN ('2027-02-01'),
+    PARTITION p2027_02 VALUES LESS THAN ('2027-03-01'),
+    PARTITION p2027_03 VALUES LESS THAN ('2027-04-01'),
+    PARTITION p2027_04 VALUES LESS THAN ('2027-05-01'),
+    PARTITION p2027_05 VALUES LESS THAN ('2027-06-01'),
+    PARTITION p2027_06 VALUES LESS THAN ('2027-07-01'),
+    PARTITION p2027_07 VALUES LESS THAN ('2027-08-01'),
+    PARTITION p2027_08 VALUES LESS THAN ('2027-09-01'),
+    PARTITION p2027_09 VALUES LESS THAN ('2027-10-01')
+);
+
+ALTER TABLE audit_logs PARTITION BY RANGE COLUMNS (created_at) (
+    PARTITION p2026_09 VALUES LESS THAN ('2026-10-01'),
+    PARTITION p2026_10 VALUES LESS THAN ('2026-11-01'),
+    PARTITION p2026_11 VALUES LESS THAN ('2026-12-01'),
+    PARTITION p2026_12 VALUES LESS THAN ('2027-01-01'),
+    PARTITION p2027_01 VALUES LESS THAN ('2027-02-01'),
+    PARTITION p2027_02 VALUES LESS THAN ('2027-03-01'),
+    PARTITION p2027_03 VALUES LESS THAN ('2027-04-01'),
+    PARTITION p2027_04 VALUES LESS THAN ('2027-05-01'),
+    PARTITION p2027_05 VALUES LESS THAN ('2027-06-01'),
+    PARTITION p2027_06 VALUES LESS THAN ('2027-07-01'),
+    PARTITION p2027_07 VALUES LESS THAN ('2027-08-01'),
+    PARTITION p2027_08 VALUES LESS THAN ('2027-09-01'),
+    PARTITION p2027_09 VALUES LESS THAN ('2027-10-01')
+);
+
+ALTER TABLE ledger_entries PARTITION BY RANGE COLUMNS (created_at) (
+    PARTITION p2026_09 VALUES LESS THAN ('2026-10-01'),
+    PARTITION p2026_10 VALUES LESS THAN ('2026-11-01'),
+    PARTITION p2026_11 VALUES LESS THAN ('2026-12-01'),
+    PARTITION p2026_12 VALUES LESS THAN ('2027-01-01'),
+    PARTITION p2027_01 VALUES LESS THAN ('2027-02-01'),
+    PARTITION p2027_02 VALUES LESS THAN ('2027-03-01'),
+    PARTITION p2027_03 VALUES LESS THAN ('2027-04-01'),
+    PARTITION p2027_04 VALUES LESS THAN ('2027-05-01'),
+    PARTITION p2027_05 VALUES LESS THAN ('2027-06-01'),
+    PARTITION p2027_06 VALUES LESS THAN ('2027-07-01'),
+    PARTITION p2027_07 VALUES LESS THAN ('2027-08-01'),
+    PARTITION p2027_08 VALUES LESS THAN ('2027-09-01'),
+    PARTITION p2027_09 VALUES LESS THAN ('2027-10-01')
+);
+
+ALTER TABLE inventory_transactions PARTITION BY RANGE COLUMNS (created_at) (
+    PARTITION p2026_09 VALUES LESS THAN ('2026-10-01'),
+    PARTITION p2026_10 VALUES LESS THAN ('2026-11-01'),
+    PARTITION p2026_11 VALUES LESS THAN ('2026-12-01'),
+    PARTITION p2026_12 VALUES LESS THAN ('2027-01-01'),
+    PARTITION p2027_01 VALUES LESS THAN ('2027-02-01'),
+    PARTITION p2027_02 VALUES LESS THAN ('2027-03-01'),
+    PARTITION p2027_03 VALUES LESS THAN ('2027-04-01'),
+    PARTITION p2027_04 VALUES LESS THAN ('2027-05-01'),
+    PARTITION p2027_05 VALUES LESS THAN ('2027-06-01'),
+    PARTITION p2027_06 VALUES LESS THAN ('2027-07-01'),
+    PARTITION p2027_07 VALUES LESS THAN ('2027-08-01'),
+    PARTITION p2027_08 VALUES LESS THAN ('2027-09-01'),
+    PARTITION p2027_09 VALUES LESS THAN ('2027-10-01')
+);
+
+ALTER TABLE search_queries PARTITION BY RANGE COLUMNS (created_at) (
+    PARTITION p2026_09 VALUES LESS THAN ('2026-10-01'),
+    PARTITION p2026_10 VALUES LESS THAN ('2026-11-01'),
+    PARTITION p2026_11 VALUES LESS THAN ('2026-12-01'),
+    PARTITION p2026_12 VALUES LESS THAN ('2027-01-01'),
+    PARTITION p2027_01 VALUES LESS THAN ('2027-02-01'),
+    PARTITION p2027_02 VALUES LESS THAN ('2027-03-01'),
+    PARTITION p2027_03 VALUES LESS THAN ('2027-04-01'),
+    PARTITION p2027_04 VALUES LESS THAN ('2027-05-01'),
+    PARTITION p2027_05 VALUES LESS THAN ('2027-06-01'),
+    PARTITION p2027_06 VALUES LESS THAN ('2027-07-01'),
+    PARTITION p2027_07 VALUES LESS THAN ('2027-08-01'),
+    PARTITION p2027_08 VALUES LESS THAN ('2027-09-01'),
+    PARTITION p2027_09 VALUES LESS THAN ('2027-10-01')
+);
