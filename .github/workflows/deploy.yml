@@ -43,18 +43,18 @@ jobs:
       - name: Copy docker-compose.yml to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.KEY }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
           source: "docker-compose.yml"
           target: "~/app"
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.KEY }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/app
             docker compose pull
