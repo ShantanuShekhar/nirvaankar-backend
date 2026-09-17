@@ -36,80 +36,65 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_PATHS = {
-            "/api/v1/auth/**",
-            "/api/v1/config/**",
-            "/api/v1/payments/webhooks/**",
-            "/webhook",
-            "/actuator/health/**",
-            "/v3/api-docs/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html"
-    };
+	private static final String[] PUBLIC_PATHS = { "/api/v1/auth/**", "/api/v1/config/**",
+			"/api/v1/payments/webhooks/**", "/webhook", "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**",
+			"/swagger-ui.html" };
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Bean
-    @Order(1)
-    public SecurityFilterChain adminFilterChain(HttpSecurity http) throws Exception {
-        return baseChain(http.securityMatcher("/api/v1/admin/**"))
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().hasAnyRole("admin", "support"))
-                .build();
-    }
+	@Bean
+	@Order(1)
+	public SecurityFilterChain adminFilterChain(HttpSecurity http) throws Exception {
+		return baseChain(http.securityMatcher("/api/v1/admin/**"))
+				.authorizeHttpRequests(auth -> auth.anyRequest().hasAnyRole("admin", "support")).build();
+	}
 
-    @Bean
-    @Order(2)
-    public SecurityFilterChain sellerFilterChain(HttpSecurity http) throws Exception {
-        return baseChain(http.securityMatcher("/api/v1/seller/**"))
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().hasAnyRole("seller", "admin"))
-                .build();
-    }
+	@Bean
+	@Order(2)
+	public SecurityFilterChain sellerFilterChain(HttpSecurity http) throws Exception {
+		return baseChain(http.securityMatcher("/api/v1/seller/**"))
+				.authorizeHttpRequests(auth -> auth.anyRequest().hasAnyRole("seller", "admin")).build();
+	}
 
-    @Bean
-    @Order(3)
-    public SecurityFilterChain customerFilterChain(HttpSecurity http) throws Exception {
-        return baseChain(http)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_PATHS).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/shopping-intentions/**").permitAll()
-                        .anyRequest().authenticated())
-                .build();
-    }
+	@Bean
+	@Order(3)
+	public SecurityFilterChain customerFilterChain(HttpSecurity http) throws Exception {
+		return baseChain(http).authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_PATHS).permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/v1/shopping-intentions/**").permitAll().anyRequest()
+				.authenticated()).build();
+	}
 
-    private HttpSecurity baseChain(HttpSecurity http) throws Exception {
-        return http
-                // No cookies, no server-side session: the API is stateless and
-                // is consumed by native apps as much as by the browser.
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-    }
+	private HttpSecurity baseChain(HttpSecurity http) throws Exception {
+		return http
+				// No cookies, no server-side session: the API is stateless and
+				// is consumed by native apps as much as by the browser.
+				.csrf(csrf -> csrf.disable()).cors(cors -> cors.configurationSource(corsConfigurationSource()))
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
+				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+	}
 
-    @Bean
-    public PasswordEncoder passwordEncoder(NirvaankarProperties properties) {
-        return new BCryptPasswordEncoder(properties.security().password().bcryptStrength());
-    }
+	@Bean
+	public PasswordEncoder passwordEncoder(NirvaankarProperties properties) {
+		return new BCryptPasswordEncoder(properties.security().password().bcryptStrength());
+	}
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        // Tighten this per environment. Native apps send no Origin at all, so
-        // this only affects the React web client.
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "https://*.nirvaankar.com"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("X-Trace-Id", "ETag"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
+	@Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration configuration = new CorsConfiguration();
+		// Tighten this per environment. Native apps send no Origin at all, so
+		// this only affects the React web client.
+		configuration.setAllowedOriginPatterns(List.of("http://localhost:*", "https://*.nirvaankar.com",
+				"http://nirvaankar.s3-website.ap-south-1.amazonaws.com"));
+		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+		configuration.setAllowedHeaders(List.of("*"));
+		configuration.setExposedHeaders(List.of("X-Trace-Id", "ETag"));
+		configuration.setAllowCredentials(true);
+		configuration.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
+	}
 }
