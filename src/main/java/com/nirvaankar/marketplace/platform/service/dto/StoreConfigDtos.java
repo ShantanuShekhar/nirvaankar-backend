@@ -10,7 +10,9 @@ public final class StoreConfigDtos {
     public record StoreConfigView(
             boolean codEnabled,
             boolean returnEnabled,
-            int returnWindowDays) {
+            int returnWindowDays,
+            /** Relative stream path when a hero S3 key is configured; otherwise null. */
+            String heroImageUrl) {
     }
 
     public record StoreConfigEntry(

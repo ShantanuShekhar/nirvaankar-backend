@@ -2,6 +2,9 @@ package com.nirvaankar.marketplace.platform.service;
 
 import com.nirvaankar.marketplace.common.error.ApiException;
 import com.nirvaankar.marketplace.common.error.ErrorCode;
+import com.nirvaankar.marketplace.common.storage.ProductImageKeys;
+import com.nirvaankar.marketplace.common.storage.S3StorageService;
+import com.nirvaankar.marketplace.common.storage.S3StorageService.S3ObjectStream;
 import com.nirvaankar.marketplace.platform.domain.StoreConfiguration;
 import com.nirvaankar.marketplace.platform.repository.StoreConfigurationRepository;
 import com.nirvaankar.marketplace.platform.service.dto.StoreConfigDtos.StoreConfigEntry;
@@ -23,8 +26,13 @@ public class StoreConfigurationService {
     public static final String COD_ENABLED = "COD_ENABLED";
     public static final String RETURN_ENABLED = "RETURN_ENABLED";
     public static final String RETURN_WINDOW_DAYS = "RETURN_WINDOW_DAYS";
+    public static final String HOME_HERO_IMAGE_KEY = "HOME_HERO_IMAGE_KEY";
+
+    public static final String HOME_HERO_PREFIX = "homepage/";
+    public static final String HOME_HERO_IMAGE_URL = "/api/v1/config/store/hero-image";
 
     private final StoreConfigurationRepository repository;
+    private final S3StorageService s3StorageService;
 
     @Transactional(readOnly = true)
     public StoreConfigView publicView() {
@@ -35,7 +43,30 @@ public class StoreConfigurationService {
         return new StoreConfigView(
                 parseBoolean(values.get(COD_ENABLED), true),
                 parseBoolean(values.get(RETURN_ENABLED), true),
-                parseInt(values.get(RETURN_WINDOW_DAYS), 7));
+                parseInt(values.get(RETURN_WINDOW_DAYS), 7),
+                heroImageUrlOrNull(values.get(HOME_HERO_IMAGE_KEY)));
+    }
+
+    @Transactional(readOnly = true)
+    public S3ObjectStream streamHomeHeroImage() {
+        String key = rawValue(HOME_HERO_IMAGE_KEY);
+        if (key == null || key.isBlank()) {
+            throw ApiException.notFound("Hero image");
+        }
+        if (!ProductImageKeys.isSafeKey(key, HOME_HERO_PREFIX)) {
+            throw ApiException.notFound("Hero image");
+        }
+        return s3StorageService.get(key);
+    }
+
+    private static String heroImageUrlOrNull(String imageKey) {
+        if (imageKey == null || imageKey.isBlank()) {
+            return null;
+        }
+        if (!ProductImageKeys.isSafeKey(imageKey, HOME_HERO_PREFIX)) {
+            return null;
+        }
+        return HOME_HERO_IMAGE_URL;
     }
 
     @Transactional(readOnly = true)
