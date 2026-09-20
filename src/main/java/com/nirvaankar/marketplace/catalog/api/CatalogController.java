@@ -1,6 +1,7 @@
 package com.nirvaankar.marketplace.catalog.api;
 
 import com.nirvaankar.marketplace.catalog.service.CatalogService;
+import com.nirvaankar.marketplace.catalog.service.CategoryImageService;
 import com.nirvaankar.marketplace.catalog.service.CategoryQueryService;
 import com.nirvaankar.marketplace.catalog.service.ProductImageService;
 import com.nirvaankar.marketplace.catalog.service.dto.CatalogDtos.CategoryResponse;
@@ -39,6 +40,7 @@ public class CatalogController {
     private final CatalogService catalogService;
     private final ProductImageService productImageService;
     private final CategoryQueryService categoryQueryService;
+    private final CategoryImageService categoryImageService;
 
     @GetMapping("/categories")
     @Operation(summary = "List active categories")
@@ -62,6 +64,12 @@ public class CatalogController {
     @Operation(summary = "List active child categories for a parent (omit parentId for roots)")
     public List<CategorySearchHit> categoryChildren(@RequestParam(required = false) Integer parentId) {
         return categoryQueryService.children(parentId);
+    }
+
+    @GetMapping("/categories/{slug}/image")
+    @Operation(summary = "Stream category card image from private S3 (image_key)")
+    public ResponseEntity<InputStreamResource> getCategoryImage(@PathVariable String slug) {
+        return toImageResponse(categoryImageService.streamImage(slug));
     }
 
     @GetMapping("/products")

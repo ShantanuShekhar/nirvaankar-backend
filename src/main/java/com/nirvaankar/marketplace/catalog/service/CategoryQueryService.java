@@ -27,7 +27,9 @@ public class CategoryQueryService {
         for (Category c : all) {
             nodes.put(c.getId(), new CategoryNode(
                     c.getId(), c.getSlug(), c.getName(), c.getParentId(), c.getLevel(),
-                    c.getSortOrder(), new ArrayList<>()));
+                    c.getSortOrder(), c.getImageKey(),
+                    CatalogMedia.categoryImageUrl(c.getSlug(), c.getImageKey()),
+                    new ArrayList<>()));
         }
         List<CategoryNode> roots = new ArrayList<>();
         for (Category c : all) {

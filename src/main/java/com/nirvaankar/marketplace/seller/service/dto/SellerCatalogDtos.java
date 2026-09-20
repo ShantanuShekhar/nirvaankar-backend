@@ -166,6 +166,8 @@ public final class SellerCatalogDtos {
             Integer parentId,
             short level,
             int sortOrder,
+            String imageKey,
+            String imageUrl,
             List<CategoryNode> children) {
     }
 

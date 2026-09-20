@@ -55,7 +55,13 @@ public class CatalogService {
     @Transactional(readOnly = true)
     public List<CategoryResponse> listCategories() {
         return categoryRepository.findAllByActiveTrueOrderBySortOrderAscNameAsc().stream()
-                .map(c -> new CategoryResponse(c.getSlug(), c.getName(), c.getParentId(), c.getSortOrder()))
+                .map(c -> new CategoryResponse(
+                        c.getSlug(),
+                        c.getName(),
+                        c.getParentId(),
+                        c.getSortOrder(),
+                        c.getImageKey(),
+                        CatalogMedia.categoryImageUrl(c.getSlug(), c.getImageKey())))
                 .toList();
     }
 

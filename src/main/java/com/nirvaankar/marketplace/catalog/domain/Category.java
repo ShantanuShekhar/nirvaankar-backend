@@ -33,6 +33,9 @@ public class Category extends BaseAuditEntity {
     @Column(nullable = false)
     private short level;
 
+    @Column(name = "image_key", length = 512)
+    private String imageKey;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 

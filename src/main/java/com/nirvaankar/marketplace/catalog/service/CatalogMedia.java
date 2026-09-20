@@ -27,4 +27,12 @@ public final class CatalogMedia {
         }
         return "/api/v1/shopping-intentions/" + slug + "/image";
     }
+
+    /** Category card image — streams via existing private S3 integration. */
+    public static String categoryImageUrl(String slug, String imageKey) {
+        if (slug == null || slug.isBlank() || imageKey == null || imageKey.isBlank()) {
+            return null;
+        }
+        return "/api/v1/catalog/categories/" + slug + "/image";
+    }
 }

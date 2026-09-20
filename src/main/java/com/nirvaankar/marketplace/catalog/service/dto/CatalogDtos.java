@@ -9,7 +9,13 @@ public final class CatalogDtos {
     private CatalogDtos() {
     }
 
-    public record CategoryResponse(String slug, String name, Integer parentId, int sortOrder) {
+    public record CategoryResponse(
+            String slug,
+            String name,
+            Integer parentId,
+            int sortOrder,
+            String imageKey,
+            String imageUrl) {
     }
 
     public record ProductImageView(
