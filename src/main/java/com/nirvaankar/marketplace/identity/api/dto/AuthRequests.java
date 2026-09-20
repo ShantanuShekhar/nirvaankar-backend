@@ -88,4 +88,66 @@ public final class AuthRequests {
 
     public record LogoutRequest(@NotBlank String refreshToken) {
     }
+
+    /** Which frontend originated the request — selects reset-link base URL. */
+    public enum AppOrigin {
+        CUSTOMER,
+        SELLER
+    }
+
+    public record RegisterRequestOtpRequest(
+            @NotBlank @Email @Size(max = 255) String email,
+            AppOrigin appOrigin) {
+    }
+
+    public record VerifyRegisterOtpRequest(
+            @NotBlank @Email @Size(max = 255) String email,
+            @NotBlank @Size(min = 4, max = 8) String otp) {
+    }
+
+    public record CompleteCustomerRegisterRequest(
+            @NotBlank @Email @Size(max = 255) String email,
+            @Pattern(regexp = "^\\+[1-9]\\d{7,14}$", message = "phone must be in E.164 format")
+            String phone,
+            @NotBlank @Size(min = 8, max = 72) String password,
+            @Size(max = 100) String firstName,
+            @Size(max = 100) String lastName,
+            @Valid DevicePayload device) {
+    }
+
+    public record CompleteSellerRegisterRequest(
+            @NotBlank @Email @Size(max = 255) String email,
+            @Pattern(regexp = "^\\+[1-9]\\d{7,14}$", message = "Mobile must be in E.164 format, e.g. +919876543210")
+            String phone,
+            @NotBlank
+            @Size(min = 8, max = 72, message = "Password must be 8–72 characters")
+            @Pattern(
+                    regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$",
+                    message = "Password must include at least one letter and one number")
+            String password,
+            @NotBlank(message = "Confirm password is required")
+            String confirmPassword,
+            @NotBlank(message = "Business / store name is required")
+            @Size(min = 2, max = 150)
+            String storeName,
+            @jakarta.validation.constraints.AssertTrue(message = "You must accept the Terms & Conditions")
+            boolean acceptTerms,
+            @Valid DevicePayload device) {
+    }
+
+    public record ForgotPasswordRequest(
+            @NotBlank @Email @Size(max = 255) String email,
+            AppOrigin appOrigin) {
+    }
+
+    public record ResetPasswordRequest(
+            @NotBlank String token,
+            @NotBlank
+            @Size(min = 8, max = 72)
+            @Pattern(
+                    regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$",
+                    message = "Password must include at least one letter and one number")
+            String newPassword,
+            @NotBlank String confirmPassword) {
+    }
 }

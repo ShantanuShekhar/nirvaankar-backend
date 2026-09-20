@@ -24,6 +24,21 @@ export NIRVAANKAR_JWT_PUBLIC_KEY="$(cat .secrets/jwt-public.pem)"
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
+### Email (Gmail SMTP → swap to SES later)
+
+Set these on EC2 / local `.env` (see `.env.example`). Never commit real credentials.
+
+```bash
+export MAIL_USERNAME=care.nirvaankar@gmail.com
+export MAIL_APP_PASSWORD='your-gmail-app-password'
+export CUSTOMER_FRONTEND_BASE_URL=https://your-customer-host
+export SELLER_FRONTEND_BASE_URL=https://your-customer-host/seller
+```
+
+Use a Gmail **App Password** (Google Account → Security → 2-Step Verification → App passwords).
+Auth business logic talks to `EmailService` only — replace `GmailSmtpEmailService` with an SES
+implementation when you outgrow the free SMTP tier.
+
 - API docs: http://localhost:8080/swagger-ui.html
 - Health: http://localhost:8080/actuator/health
 
@@ -42,6 +57,7 @@ Tests need Docker (Testcontainers spins up a real MySQL):
 | 0 | Project skeleton, config, Docker, Flyway, Testcontainers | done |
 | 1 | `common` foundation + full **identity** module + idempotency | done |
 | 1 | **Complete database schema — all 14 modules, every table** | done |
+| 1b | Email OTP registration + forgot-password (Gmail SMTP) | done |
 | 2 | Seller onboarding + catalog service code | schema ready, Java pending |
 | 3 | Inventory, cart, orders service code | schema ready, Java pending |
 | 4 | Payments, ledger, payouts service code | schema ready, Java pending |

@@ -23,6 +23,9 @@ public enum ErrorCode {
     FORBIDDEN("You do not have permission to do that", HttpStatus.FORBIDDEN),
     OTP_INVALID("The code is incorrect or has expired", HttpStatus.UNAUTHORIZED),
     OTP_ATTEMPTS_EXCEEDED("Too many incorrect attempts; request a new code", HttpStatus.FORBIDDEN),
+    EMAIL_NOT_VERIFIED("Please verify your email again before completing registration", HttpStatus.FORBIDDEN),
+    RESET_TOKEN_INVALID("This reset link is invalid or has expired. Please request a new one.", HttpStatus.UNAUTHORIZED),
+    EMAIL_SEND_FAILED("We could not send the email. Please try again shortly.", HttpStatus.SERVICE_UNAVAILABLE),
 
     // 404
     RESOURCE_NOT_FOUND("The requested resource does not exist", HttpStatus.NOT_FOUND),

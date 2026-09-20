@@ -2,18 +2,28 @@ package com.nirvaankar.marketplace.identity.api;
 
 import com.nirvaankar.marketplace.common.config.NirvaankarProperties;
 import com.nirvaankar.marketplace.common.security.AuthPrincipal;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.CompleteCustomerRegisterRequest;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.CompleteSellerRegisterRequest;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.ForgotPasswordRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.LogoutRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.OtpLoginRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.OtpRequestPayload;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.PasswordLoginRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.RefreshRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.RegisterRequest;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.RegisterRequestOtpRequest;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.ResetPasswordRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.SellerRegisterRequest;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.VerifyRegisterOtpRequest;
+import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.MessageResponse;
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.OtpChallengeResponse;
+import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.ResetTokenValidationResponse;
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.SellerRegisterResponse;
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.SessionResponse;
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.TokenResponse;
 import com.nirvaankar.marketplace.identity.service.AuthService;
+import com.nirvaankar.marketplace.identity.service.PasswordResetService;
+import com.nirvaankar.marketplace.identity.service.RegistrationEmailAuthService;
 import com.nirvaankar.marketplace.identity.service.dto.DeviceRegistration;
 import com.nirvaankar.marketplace.seller.service.SellerRegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,9 +34,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -43,6 +55,8 @@ public class AuthController {
 
     private final AuthService authService;
     private final SellerRegistrationService sellerRegistrationService;
+    private final RegistrationEmailAuthService registrationEmailAuthService;
+    private final PasswordResetService passwordResetService;
     private final NirvaankarProperties properties;
 
     @PostMapping("/register")
@@ -57,6 +71,34 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(session));
     }
 
+    @PostMapping("/register/request-otp")
+    @Operation(summary = "Send a registration OTP to an email (no user created yet)")
+    public OtpChallengeResponse requestRegisterOtp(@Valid @RequestBody RegisterRequestOtpRequest request) {
+        return registrationEmailAuthService.requestOtp(request);
+    }
+
+    @PostMapping("/register/verify-otp")
+    @Operation(summary = "Verify registration email OTP; unlocks the complete-registration step")
+    public MessageResponse verifyRegisterOtp(@Valid @RequestBody VerifyRegisterOtpRequest request) {
+        return registrationEmailAuthService.verifyOtp(request);
+    }
+
+    @PostMapping("/register/complete")
+    @Operation(summary = "Complete customer registration after email OTP verification")
+    public ResponseEntity<SessionResponse> completeCustomerRegister(
+            @Valid @RequestBody CompleteCustomerRegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(registrationEmailAuthService.completeCustomer(request));
+    }
+
+    @PostMapping("/register/complete-seller")
+    @Operation(summary = "Complete seller registration after email OTP verification")
+    public ResponseEntity<SellerRegisterResponse> completeSellerRegister(
+            @Valid @RequestBody CompleteSellerRegisterRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(registrationEmailAuthService.completeSeller(request));
+    }
+
     @PostMapping("/seller/register")
     @Operation(summary = "Register a new seller account (pending verification)")
     public ResponseEntity<SellerRegisterResponse> registerSeller(@Valid @RequestBody SellerRegisterRequest request) {
@@ -64,6 +106,24 @@ public class AuthController {
                 request.email(), request.phone(), request.storeName());
         SellerRegisterResponse response = sellerRegistrationService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Request a password-reset email (generic response always)")
+    public MessageResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return passwordResetService.forgotPassword(request);
+    }
+
+    @GetMapping("/reset-password/validate")
+    @Operation(summary = "Check whether a password-reset token is still valid")
+    public ResetTokenValidationResponse validateResetToken(@RequestParam("token") String token) {
+        return passwordResetService.validateToken(token);
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Set a new password using a single-use reset token")
+    public MessageResponse resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        return passwordResetService.resetPassword(request);
     }
 
     @PostMapping("/login")
@@ -84,7 +144,9 @@ public class AuthController {
         String devCode = properties.otp().exposeInResponse() ? issuedCode : null;
         log.info("OTP sent to phone: {}, devCode: {}", maskDestination(request.phone()), devCode);
         return new OtpChallengeResponse(maskDestination(request.phone()),
-                (int) properties.otp().ttl().toSeconds(), devCode);
+                (int) properties.otp().ttl().toSeconds(),
+                (int) properties.otp().resendCooldown().toSeconds(),
+                devCode);
     }
 
     @PostMapping("/otp/verify")

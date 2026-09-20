@@ -47,6 +47,16 @@ public final class AuthResponses {
     }
 
     /** OTP send acknowledgement. The code itself is never returned outside dev. */
-    public record OtpChallengeResponse(String destination, int expiresInSeconds, String devCode) {
+    public record OtpChallengeResponse(
+            String destination,
+            int expiresInSeconds,
+            int resendCooldownSeconds,
+            String devCode) {
+    }
+
+    public record MessageResponse(String message) {
+    }
+
+    public record ResetTokenValidationResponse(boolean valid) {
     }
 }

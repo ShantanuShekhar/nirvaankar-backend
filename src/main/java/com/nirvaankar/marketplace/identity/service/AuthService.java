@@ -238,6 +238,22 @@ public class AuthService {
         }
     }
 
+    /**
+     * Stamps {@code email_verified_at} after the email-OTP registration path
+     * succeeds. Safe no-op when the email is blank or the user row is missing.
+     */
+    @Transactional
+    public void markEmailVerifiedNow(String email) {
+        String normalised = normalise(email);
+        if (normalised == null) {
+            return;
+        }
+        userRepository.findByEmail(normalised).ifPresent(user -> {
+            user.markEmailVerified(Instant.now());
+            userRepository.save(user);
+        });
+    }
+
     private String normalise(String email) {
         return email == null || email.isBlank() ? null : email.trim().toLowerCase();
     }

@@ -5,13 +5,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.stereotype.Component;
 
 /**
- * Development adapter. It logs that a code was sent but never the code itself -
- * the code reaches the developer through the dev-profile response field, not
- * through a log file that might be shipped somewhere.
+ * Development adapter kept for tests that exclude the routing bean.
+ * Never logs the OTP code itself.
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(name = "smsOtpDeliveryAdapter")
+@ConditionalOnMissingBean(OtpDeliveryPort.class)
 public class LoggingOtpDeliveryAdapter implements OtpDeliveryPort {
 
     @Override

@@ -16,6 +16,9 @@ public record NirvaankarProperties(
         Otp otp,
         Idempotency idempotency,
         RateLimit rateLimit,
+        Registration registration,
+        PasswordReset passwordReset,
+        Frontend frontend,
         Shipping shipping,
         Payment payment,
         Catalog catalog) {
@@ -29,6 +32,15 @@ public record NirvaankarProperties(
         }
         if (catalog == null) {
             catalog = new Catalog(10_000_000L, 70, 5, 5_242_880L);
+        }
+        if (registration == null) {
+            registration = new Registration(Duration.ofMinutes(30));
+        }
+        if (passwordReset == null) {
+            passwordReset = new PasswordReset(Duration.ofHours(24), Duration.ofMinutes(1));
+        }
+        if (frontend == null) {
+            frontend = new Frontend("http://localhost:5173", "http://localhost:5174/seller");
         }
     }
 
@@ -67,7 +79,25 @@ public record NirvaankarProperties(
 
     public record RateLimit(
             @DefaultValue("5") int otpRequestPerHour,
-            @DefaultValue("10") int loginAttemptsPer15Min) {
+            @DefaultValue("10") int loginAttemptsPer15Min,
+            @DefaultValue("3") int passwordResetPerHour) {
+    }
+
+    public record Registration(@DefaultValue("PT30M") Duration verifiedTtl) {
+    }
+
+    public record PasswordReset(
+            @DefaultValue("PT24H") Duration ttl,
+            @DefaultValue("PT1M") Duration resendCooldown) {
+    }
+
+    /**
+     * Base URLs for password-reset emails. Customer vs seller portals differ;
+     * the request carries {@code appOrigin} so the correct link is built.
+     */
+    public record Frontend(
+            @DefaultValue("http://localhost:5173") String customerBaseUrl,
+            @DefaultValue("http://localhost:5174/seller") String sellerBaseUrl) {
     }
 
     /**

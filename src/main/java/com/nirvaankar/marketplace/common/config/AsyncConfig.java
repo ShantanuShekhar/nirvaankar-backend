@@ -37,6 +37,7 @@ public class AsyncConfig implements AsyncConfigurer {
 
     public static final String OUTBOX_EXECUTOR = "outboxExecutor";
     public static final String NOTIFICATION_EXECUTOR = "notificationExecutor";
+    public static final String MAIL_EXECUTOR = "mailExecutor";
     public static final String AUDIT_EXECUTOR = "auditExecutor";
     public static final String SEARCH_INDEX_EXECUTOR = "searchIndexExecutor";
     public static final String WEBHOOK_RETRY_EXECUTOR = "webhookRetryExecutor";
@@ -52,6 +53,12 @@ public class AsyncConfig implements AsyncConfigurer {
     @Bean(name = NOTIFICATION_EXECUTOR)
     public ThreadPoolTaskExecutor notificationExecutor() {
         return buildExecutor("notify-", 2, 6, 1000);
+    }
+
+    /** Dedicated pool for SMTP / SES — must never share with outbox or WhatsApp. */
+    @Bean(name = MAIL_EXECUTOR)
+    public ThreadPoolTaskExecutor mailExecutor() {
+        return buildExecutor("mail-", 2, 4, 500);
     }
 
     @Bean(name = AUDIT_EXECUTOR)

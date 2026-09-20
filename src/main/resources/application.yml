@@ -6,6 +6,7 @@
 #    audit       max 4   |  webhookRetry max 4  |  report      max 2
 #    Of these, the pools that touch the database are: outbox, audit,
 #    searchIndex, webhookRetry  ->  8 + 4 + 4 + 4 = 20 worker threads.
+#    mail pool (SMTP) does not touch the DB.
 #    Tomcat request threads that touch the DB: bounded at 50 by
 #    server.tomcat.threads.max, but they queue on Hikari rather than
 #    deadlocking because no request holds two connections at once.
@@ -70,6 +71,23 @@ spring:
       lettuce:
         shutdown-timeout: 100ms
 
+  # Gmail SMTP (free tier ~500/day). Credentials via env only — never commit.
+  # Swap EmailService implementation to AWS SES later without touching auth logic.
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${MAIL_USERNAME:care.nirvaankar@gmail.com}
+    password: ${MAIL_APP_PASSWORD:gozh cihc eijc zzrq}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -126,6 +144,17 @@ nirvaankar:
   rate-limit:
     otp-request-per-hour: 5
     login-attempts-per-15min: 10
+    password-reset-per-hour: 3
+  registration:
+    # Time allowed to finish the registration form after email OTP verify
+    verified-ttl: PT30M
+  password-reset:
+    ttl: PT24H
+    resend-cooldown: PT1M
+  frontend:
+    # Used to build password-reset links. Set per environment on EC2.
+    customer-base-url: ${CUSTOMER_FRONTEND_BASE_URL:http://localhost:5173}
+    seller-base-url: ${SELLER_FRONTEND_BASE_URL:http://localhost:5174/seller}
   shipping:
     # Schema has no rate table; these are the only shipping rules.
     flat-rate-minor: 100          # ₹49.00
