@@ -89,7 +89,7 @@ class LoginRedisFallbackTest {
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(values);
-        when(properties.rateLimit()).thenReturn(new NirvaankarProperties.RateLimit(5, 10));
+        when(properties.rateLimit()).thenReturn(new NirvaankarProperties.RateLimit(5, 10, 3));
         RateLimiter rateLimiter = new RateLimiter(new RedisCacheBoundary(redisTemplate));
         authService = new AuthService(
                 userRepository, userIdentityRepository, userProfileRepository, userRoleRepository,

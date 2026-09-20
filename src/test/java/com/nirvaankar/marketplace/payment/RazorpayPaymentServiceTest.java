@@ -70,7 +70,7 @@ class RazorpayPaymentServiceTest {
         NirvaankarProperties.Payment pay = new NirvaankarProperties.Payment(
                 "razorpay", "rzp_test_key", "rzp_test_secret", "wh_secret", java.time.Duration.ofMinutes(15));
         NirvaankarProperties properties = new NirvaankarProperties(
-                null, null, null, null, null, null, pay, null);
+                null, null, null, null, null, null, null, null, null, pay, null);
         PaymentGatewayResolver resolver = new PaymentGatewayResolver(properties, List.of(
                 new SimulatedPaymentGateway(),
                 new RazorpayPaymentGateway(properties, RestClient.builder())));

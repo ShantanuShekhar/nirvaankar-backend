@@ -49,6 +49,6 @@ class PaymentGatewayResolverTest {
     private static NirvaankarProperties properties(String gateway, String keyId, String keySecret) {
         NirvaankarProperties.Payment pay = new NirvaankarProperties.Payment(
                 gateway, keyId, keySecret, "wh_secret", Duration.ofMinutes(15));
-        return new NirvaankarProperties(null, null, null, null, null, null, pay, null);
+        return new NirvaankarProperties(null, null, null, null, null, null, null, null, null, pay, null);
     }
 }
