@@ -105,6 +105,11 @@ public class User extends SoftDeletableEntity {
         this.phoneVerifiedAt = when;
     }
 
+    public void changePhone(String newPhone) {
+        this.phone = newPhone;
+        this.phoneVerifiedAt = null;
+    }
+
     public void markEmailVerified(Instant when) {
         this.emailVerifiedAt = when;
     }

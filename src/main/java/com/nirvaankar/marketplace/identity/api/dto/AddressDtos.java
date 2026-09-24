@@ -19,6 +19,7 @@ public final class AddressDtos {
                                   String line2,
                                   String landmark,
                                   String city,
+                                  String district,
                                   String state,
                                   String pincode,
                                   String countryCode,
@@ -28,7 +29,7 @@ public final class AddressDtos {
     }
 
     public record SaveAddressRequest(
-            @Pattern(regexp = "home|office|other") String label,
+            @Pattern(regexp = "home|office|other|pickup") String label,
             @NotBlank @Size(max = 100) String contactName,
             @NotBlank @Pattern(regexp = "^\\+[1-9]\\d{7,14}$") String contactPhone,
             @NotBlank @Size(max = 255) String line1,

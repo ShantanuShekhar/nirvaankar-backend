@@ -12,10 +12,12 @@ import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.MessageResponse
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.OtpChallengeResponse;
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.SellerRegisterResponse;
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.SessionResponse;
+import com.nirvaankar.marketplace.identity.domain.Gender;
 import com.nirvaankar.marketplace.identity.domain.OtpRequest;
 import com.nirvaankar.marketplace.identity.repository.UserRepository;
 import com.nirvaankar.marketplace.identity.service.dto.AuthenticatedSession;
 import com.nirvaankar.marketplace.identity.service.dto.DeviceRegistration;
+import com.nirvaankar.marketplace.seller.service.SellerOnboardingService;
 import com.nirvaankar.marketplace.seller.service.SellerRegistrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,7 @@ public class RegistrationEmailAuthService {
     private final AuthEmailTokenStore tokenStore;
     private final AuthService authService;
     private final SellerRegistrationService sellerRegistrationService;
+    private final SellerOnboardingService sellerOnboardingService;
     private final RateLimiter rateLimiter;
     private final NirvaankarProperties properties;
 
@@ -74,9 +77,10 @@ public class RegistrationEmailAuthService {
         requireVerified(email);
 
         DeviceRegistration device = request.device() == null ? null : request.device().toRegistration();
+        String gender = Gender.parseRequired(request.gender()).name();
         AuthenticatedSession session = authService.registerWithPassword(
                 email, request.phone(), request.password(),
-                request.firstName(), request.lastName(), null, device);
+                request.firstName(), request.lastName(), null, gender, device);
         authService.markEmailVerifiedNow(email);
         tokenStore.clearRegistrationVerified(email);
         return SessionResponse.from(session);
@@ -95,10 +99,23 @@ public class RegistrationEmailAuthService {
                         request.confirmPassword(),
                         request.storeName(),
                         request.acceptTerms(),
-                        request.device()));
+                        request.device(),
+                        request.gstin(),
+                        request.pickupAddress()));
         authService.markEmailVerifiedNow(email);
         tokenStore.clearRegistrationVerified(email);
         return response;
+    }
+
+    /**
+     * Optional GST preview after email OTP verification (does not create a seller).
+     */
+    @Transactional(readOnly = true)
+    public com.nirvaankar.marketplace.seller.api.dto.SellerOnboardingDtos.GstPreviewResponse previewGst(
+            com.nirvaankar.marketplace.seller.api.dto.SellerOnboardingDtos.GstPreviewRequest request) {
+        String email = normalise(request.email());
+        requireVerified(email);
+        return sellerOnboardingService.previewGst(request.gstin(), "reg-" + email);
     }
 
     private void requireVerified(String email) {

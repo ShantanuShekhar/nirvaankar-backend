@@ -26,6 +26,16 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED("Please verify your email again before completing registration", HttpStatus.FORBIDDEN),
     RESET_TOKEN_INVALID("This reset link is invalid or has expired. Please request a new one.", HttpStatus.UNAUTHORIZED),
     EMAIL_SEND_FAILED("We could not send the email. Please try again shortly.", HttpStatus.SERVICE_UNAVAILABLE),
+    SMS_SEND_FAILED("We could not send the SMS. Please try again shortly.", HttpStatus.SERVICE_UNAVAILABLE),
+    VERIFICATION_PROVIDER_UNAVAILABLE("Verification provider is unavailable. Please retry shortly.", HttpStatus.SERVICE_UNAVAILABLE),
+    GST_VERIFICATION_FAILED("GSTIN could not be verified", HttpStatus.UNPROCESSABLE_ENTITY),
+    BANK_VERIFICATION_FAILED("Bank account could not be verified", HttpStatus.UNPROCESSABLE_ENTITY),
+    BANK_VERIFICATION_PENDING("Bank verification is still pending. Complete the ₹1 UPI step and refresh.", HttpStatus.CONFLICT),
+    ONBOARDING_INCOMPLETE("Complete GST and bank verification before accessing payouts", HttpStatus.FORBIDDEN),
+
+    DELIVERY_NOT_AVAILABLE("Delivery is not available at this location.", HttpStatus.UNPROCESSABLE_ENTITY),
+    ADDRESS_LIMIT_EXCEEDED("You can save at most 5 addresses", HttpStatus.FORBIDDEN),
+    INVALID_GENDER("Gender must be one of: MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY", HttpStatus.UNPROCESSABLE_ENTITY),
 
     // 404
     RESOURCE_NOT_FOUND("The requested resource does not exist", HttpStatus.NOT_FOUND),

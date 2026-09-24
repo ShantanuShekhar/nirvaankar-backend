@@ -1,14 +1,19 @@
 package com.nirvaankar.marketplace.identity.api;
 
+import com.nirvaankar.marketplace.common.config.NirvaankarProperties;
 import com.nirvaankar.marketplace.common.security.AuthPrincipal;
+import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.OtpChallengeResponse;
 import com.nirvaankar.marketplace.identity.api.dto.ProfileDtos.ChangeAvatarRequest;
+import com.nirvaankar.marketplace.identity.api.dto.ProfileDtos.ChangePhoneRequest;
 import com.nirvaankar.marketplace.identity.api.dto.ProfileDtos.DeviceResponse;
 import com.nirvaankar.marketplace.identity.api.dto.ProfileDtos.MeResponse;
 import com.nirvaankar.marketplace.identity.api.dto.ProfileDtos.UpdateProfileRequest;
+import com.nirvaankar.marketplace.identity.api.dto.ProfileDtos.VerifyPhoneChangeRequest;
 import com.nirvaankar.marketplace.identity.domain.Device;
 import com.nirvaankar.marketplace.identity.domain.User;
 import com.nirvaankar.marketplace.identity.domain.UserProfile;
 import com.nirvaankar.marketplace.identity.service.DeviceService;
+import com.nirvaankar.marketplace.identity.service.PhoneNumbers;
 import com.nirvaankar.marketplace.identity.service.UserProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +24,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +42,7 @@ public class MeController {
 
     private final UserProfileService userProfileService;
     private final DeviceService deviceService;
+    private final NirvaankarProperties properties;
 
     @GetMapping
     @Operation(summary = "Fetch the authenticated user's profile")
@@ -53,6 +60,28 @@ public class MeController {
                 request.firstName(), request.lastName(), request.gender(),
                 request.dateOfBirth(), request.locale());
         User user = userProfileService.getUserById(principal.userId());
+        return toMeResponse(user, profile, principal);
+    }
+
+    @PostMapping("/phone/request-otp")
+    @Operation(summary = "Send OTP to a new phone number before updating profile phone")
+    public OtpChallengeResponse requestPhoneChange(@AuthenticationPrincipal AuthPrincipal principal,
+                                                   @Valid @RequestBody ChangePhoneRequest request) {
+        String issued = userProfileService.requestPhoneChangeOtp(principal.userId(), request.phone());
+        String phone = PhoneNumbers.normalizeIndianMobile(request.phone());
+        return new OtpChallengeResponse(
+                PhoneNumbers.mask(phone),
+                (int) properties.otp().ttl().toSeconds(),
+                (int) properties.otp().resendCooldown().toSeconds(),
+                properties.otp().exposeInResponse() ? issued : null);
+    }
+
+    @PostMapping("/phone/verify")
+    @Operation(summary = "Verify OTP and persist the new phone number")
+    public MeResponse verifyPhoneChange(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @Valid @RequestBody VerifyPhoneChangeRequest request) {
+        User user = userProfileService.confirmPhoneChange(principal.userId(), request.phone(), request.otp());
+        UserProfile profile = userProfileService.getProfileByUserId(principal.userId());
         return toMeResponse(user, profile, principal);
     }
 
@@ -91,6 +120,7 @@ public class MeController {
                 profile == null ? null : profile.getLastName(),
                 profile == null ? null : profile.getAvatarUrl(),
                 profile == null ? null : profile.getLocale(),
+                profile == null ? null : profile.getGender(),
                 profile == null ? null : profile.getDateOfBirth(),
                 principal.roles(),
                 user.getCreatedAt());

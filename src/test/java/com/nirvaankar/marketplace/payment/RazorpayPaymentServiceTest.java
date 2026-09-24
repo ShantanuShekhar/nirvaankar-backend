@@ -79,7 +79,7 @@ class RazorpayPaymentServiceTest {
         UUID paymentId = UUID.fromString("018f0000-0000-7000-8000-0000000000bb");
         payment = Payment.initiate(paymentId, 9L, "razorpay", 49900, "INR", "order_ABC");
         order = spy(CustomerOrder.place(orderPublicId, "NRV-2026-1", 1L, "INR",
-                40000, 5000, 4900, 49900, Map.of("city", "Mumbai")));
+                40000, 5000, 4900, 0, 0, 49900, Map.of("city", "Mumbai")));
         lenient().when(order.getId()).thenReturn(9L);
         lenient().when(orderRepository.persistPaid(any())).thenReturn(1);
     }

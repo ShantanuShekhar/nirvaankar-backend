@@ -9,6 +9,7 @@ spring:
       - optional:file:.secrets/razorpay.yml
       - optional:file:.secrets/aws.yml
       - optional:file:.secrets/whatsapp.properties
+      - optional:file:.secrets/encryption.yml
 
 nirvaankar:
   otp:

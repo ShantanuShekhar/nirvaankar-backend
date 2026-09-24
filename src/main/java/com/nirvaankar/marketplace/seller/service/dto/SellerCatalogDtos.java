@@ -85,6 +85,22 @@ public final class SellerCatalogDtos {
             long maxImageBytes) {
     }
 
+    public record SellerPricePreviewView(
+            long basePriceMinor,
+            long productGstMinor,
+            long shippingMinor,
+            long shippingGstMinor,
+            long platformFeeMinor,
+            long platformFeeGstMinor,
+            long paymentGatewayFeeMinor,
+            long sellingInclTaxMinor,
+            long customerPayableMinor,
+            java.math.BigDecimal commissionRatePercent,
+            long commissionMinor,
+            long sellerReceivableMinor,
+            String currency) {
+    }
+
     public record SkuSuggestionView(String sku) {
     }
 

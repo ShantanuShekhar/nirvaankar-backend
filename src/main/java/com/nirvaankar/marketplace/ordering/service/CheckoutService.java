@@ -22,6 +22,7 @@ import com.nirvaankar.marketplace.identity.service.UserAddressService;
 import com.nirvaankar.marketplace.identity.service.dto.AddressSnapshot;
 import com.nirvaankar.marketplace.inventory.service.InventoryService;
 import com.nirvaankar.marketplace.notification.OrderNotificationService;
+import com.nirvaankar.marketplace.platform.service.PaymentChargeConfigService;
 import com.nirvaankar.marketplace.platform.service.StoreConfigurationService;
 import com.nirvaankar.marketplace.ordering.domain.BuyNowCheckout;
 import com.nirvaankar.marketplace.ordering.domain.CustomerOrder;
@@ -68,6 +69,7 @@ public class CheckoutService {
     private final BuyNowCheckoutRepository buyNowCheckoutRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final StoreConfigurationService storeConfigurationService;
+    private final PaymentChargeConfigService paymentChargeConfigService;
     private final OrderNotificationService orderNotificationService;
 
     @Transactional
@@ -179,18 +181,36 @@ public class CheckoutService {
                             item.getUnitPriceMinor(), item.getTaxMinor(), item.getLineTotalMinor(), taxLines);
                 })
                 .toList();
-        Totals totals = new Totals(order.getSubtotalMinor(), order.getDiscountMinor(), order.getTaxMinor(),
-                order.getShippingMinor(), order.getGrandTotalMinor(), order.getCurrency());
-        long sellingIncl = order.getSubtotalMinor() + order.getTaxMinor();
-        // Historical orders lack per-line MRP; show selling as MRP floor so UI stays consistent.
-        PriceBreakdown priceDetails = CheckoutPriceDetails.of(
+        Totals totals = Totals.of(
+                order.getSubtotalMinor(),
+                order.getDiscountMinor(),
+                order.getTaxMinor(),
+                order.getShippingMinor(),
+                order.getCurrency(),
+                order.getPlatformFeeMinor(),
+                order.getPaymentGatewayFeeMinor());
+        long sellingIncl = order.getSubtotalMinor() + Math.max(0L,
+                order.getTaxMinor() - estimateAncillaryTax(order));
+        // Prefer reconstructed breakdown from persisted fee columns.
+        PriceBreakdown priceDetails = CheckoutPriceDetails.detailed(
                 sellingIncl + order.getDiscountMinor(),
                 sellingIncl,
+                Math.max(0L, order.getTaxMinor() - estimateAncillaryTax(order)),
                 order.getShippingMinor(),
+                0L,
+                order.getPlatformFeeMinor(),
+                0L,
+                order.getPaymentGatewayFeeMinor(),
+                CheckoutPriceDetails.PROTECT_PROMISE_FEE_LABEL,
                 order.getCurrency());
         return new OrderView(order.getPublicId(), order.getOrderNumber(), order.getOrderStatus(),
                 order.getPaymentStatus(), totals, priceDetails, order.getShippingAddress(), itemViews,
                 order.getPlacedAt(), null, null, null);
+    }
+
+    private static long estimateAncillaryTax(CustomerOrder order) {
+        // Shipping/platform GST are folded into tax_minor; we cannot split historically — treat as 0 for display.
+        return 0L;
     }
 
     private CheckoutPreview previewBuyNow(Long userId, Long addressId, BuyNowCheckout buyNow) {
@@ -219,11 +239,12 @@ public class CheckoutService {
                 variant.available(),
                 variant.sellable() && variant.available() >= buyNow.getQuantity(),
                 quote.subtotalMinor(), quote.taxMinor(), quote.lineTotalMinor(), quote.taxLines());
-        long shipping = shippingCalculator.shippingMinor(quote.subtotalMinor());
-        Totals totals = Totals.of(quote.subtotalMinor(), 0L, quote.taxMinor(), shipping, variant.currency());
-        CartView cart = new CartView(buyNow.getPublicId(), List.of(item), totals, buyerState);
-        PriceBreakdown priceDetails = CheckoutPriceDetails.of(
-                mrpQuote.lineTotalMinor(), quote.lineTotalMinor(), shipping, variant.currency());
+        var chargeQuote = paymentChargeConfigService.quoteCharges(
+                quote.subtotalMinor(), quote.taxMinor(), variant.currency());
+        CartView cart = new CartView(buyNow.getPublicId(), List.of(item), chargeQuote.totals(), buyerState);
+        PriceBreakdown priceDetails = paymentChargeConfigService.priceBreakdown(
+                mrpQuote.lineTotalMinor(), quote.lineTotalMinor(), quote.taxMinor(),
+                quote.subtotalMinor(), variant.currency());
         return new CheckoutPreview(CheckoutSource.BUY_NOW.name(), buyNow.getPublicId(), cart, priceDetails, addressId,
                 storeConfigurationService.isCodEnabled() && sellerAllowsCod(variant.sellerId()),
                 storeConfigurationService.isReturnEnabled(),
@@ -237,6 +258,8 @@ public class CheckoutService {
         boolean intra = shippingCalculator.isIntraState(buyerState);
         long mrpIncl = 0L;
         long sellingIncl = 0L;
+        long productTax = 0L;
+        long subtotal = 0L;
         for (CartItemView item : cart.items()) {
             SellableVariant variant = catalogService.requireSellable(item.sku());
             LineQuote selling = taxCalculator.quoteLine(variant.unitPriceMinor(), item.quantity(),
@@ -246,8 +269,11 @@ public class CheckoutService {
                     variant.gstRate(), intra, variant.hsnCode(), variant.currency());
             mrpIncl += mrp.lineTotalMinor();
             sellingIncl += selling.lineTotalMinor();
+            productTax += selling.taxMinor();
+            subtotal += selling.subtotalMinor();
         }
-        return CheckoutPriceDetails.of(mrpIncl, sellingIncl, cart.totals().shippingMinor(), cart.totals().currency());
+        return paymentChargeConfigService.priceBreakdown(
+                mrpIncl, sellingIncl, productTax, subtotal, cart.totals().currency());
     }
 
     private String buyerState(Long userId, Long addressId) {
@@ -295,14 +321,15 @@ public class CheckoutService {
             subtotal += line.quote().subtotalMinor();
             tax += line.quote().taxMinor();
         }
-        long shipping = shippingCalculator.shippingMinor(subtotal);
-        Totals totals = Totals.of(subtotal, 0L, tax, shipping, currency);
+        var chargeQuote = paymentChargeConfigService.quoteCharges(subtotal, tax, currency);
+        Totals totals = chargeQuote.totals();
 
         UUID publicId = UuidV7.generate();
         String placeholderNumber = "NRV-PENDING-" + publicId.toString().substring(0, 8);
         CustomerOrder order = orderRepository.save(CustomerOrder.place(
                 publicId, placeholderNumber, userId, currency,
                 totals.subtotalMinor(), totals.taxMinor(), totals.shippingMinor(),
+                totals.platformFeeMinor(), totals.paymentGatewayFeeMinor(),
                 totals.grandTotalMinor(), address.asJsonMap()));
         String orderNumber = "NRV-" + Year.now() + "-" + String.format("%06d", order.getId());
         order.assignNumber(orderNumber);

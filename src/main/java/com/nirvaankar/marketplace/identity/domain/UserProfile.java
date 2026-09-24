@@ -49,10 +49,15 @@ public class UserProfile extends BaseAuditEntity {
     }
 
     public UserProfile(Long userId, String firstName, String lastName, String locale) {
+        this(userId, firstName, lastName, locale, null);
+    }
+
+    public UserProfile(Long userId, String firstName, String lastName, String locale, String gender) {
         this.userId = userId;
         this.firstName = firstName;
         this.lastName = lastName;
         this.locale = locale == null ? "en-IN" : locale;
+        this.gender = gender;
     }
 
     public void updateDisplayDetails(String firstName, String lastName, String gender,

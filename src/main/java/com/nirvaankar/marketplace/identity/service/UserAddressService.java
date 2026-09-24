@@ -1,6 +1,9 @@
 package com.nirvaankar.marketplace.identity.service;
 
 import com.nirvaankar.marketplace.common.error.ApiException;
+import com.nirvaankar.marketplace.common.error.ErrorCode;
+import com.nirvaankar.marketplace.geo.service.LocationService;
+import com.nirvaankar.marketplace.geo.service.LocationService.PincodeLocation;
 import com.nirvaankar.marketplace.identity.domain.UserAddress;
 import com.nirvaankar.marketplace.identity.service.dto.AddressSnapshot;
 import com.nirvaankar.marketplace.identity.repository.UserAddressRepository;
@@ -13,21 +16,15 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * The address book.
- * <p>
- * Every method takes the caller's userId and passes it into the query rather
- * than loading by id and comparing afterwards. That is the difference between
- * an authorization check you can forget and one the database enforces.
- */
 @Service
 @RequiredArgsConstructor
 public class UserAddressService {
 
-    private static final int MAX_ADDRESSES_PER_USER = 20;
+    public static final int MAX_ADDRESSES_PER_USER = 5;
 
     private final UserAddressRepository userAddressRepository;
     private final UserProfileRepository userProfileRepository;
+    private final LocationService locationService;
 
     @Transactional(readOnly = true)
     public List<UserAddress> listAddresses(Long userId) {
@@ -51,10 +48,14 @@ public class UserAddressService {
                                   String pincode, String countryCode, BigDecimal latitude,
                                   BigDecimal longitude, boolean makeDefault) {
         ensureUnderAddressLimit(userId);
+        PincodeLocation loc = locationService.resolveServiceablePincode(pincode);
+        String resolvedCity = blankTo(city, loc.localityName());
+        String resolvedState = blankTo(state, loc.stateName());
 
         UserAddress address = userAddressRepository.save(new UserAddress(
                 userId, label, contactName, contactPhone, line1, line2, landmark,
-                city, state, pincode, countryCode, latitude, longitude));
+                resolvedCity, loc.districtName(), resolvedState, loc.pincode(), loc.pincodeId(),
+                loc.countryCode(), latitude, longitude));
 
         boolean isFirstAddress = userAddressRepository.countByUserId(userId) == 1L;
         if (makeDefault || isFirstAddress) {
@@ -69,8 +70,12 @@ public class UserAddressService {
                                      String city, String state, String pincode,
                                      BigDecimal latitude, BigDecimal longitude, boolean makeDefault) {
         UserAddress address = getAddress(userId, addressId);
+        PincodeLocation loc = locationService.resolveServiceablePincode(pincode);
+        String resolvedCity = blankTo(city, loc.localityName());
+        String resolvedState = blankTo(state, loc.stateName());
         address.updateDetails(label, contactName, contactPhone, line1, line2, landmark,
-                city, state, pincode, latitude, longitude);
+                resolvedCity, loc.districtName(), resolvedState, loc.pincode(), loc.pincodeId(),
+                latitude, longitude);
         if (makeDefault) {
             promoteToDefault(userId, address);
         }
@@ -93,8 +98,6 @@ public class UserAddressService {
     }
 
     private void promoteToDefault(Long userId, UserAddress address) {
-        // One statement clears the previous default rather than loading every
-        // address and flipping a flag per row.
         userAddressRepository.clearDefaultExcept(userId, address.getId());
         address.markDefault(true);
         userProfileRepository.findById(userId)
@@ -103,7 +106,14 @@ public class UserAddressService {
 
     private void ensureUnderAddressLimit(Long userId) {
         if (userAddressRepository.countByUserId(userId) >= MAX_ADDRESSES_PER_USER) {
-            throw ApiException.forbidden("You can save at most %d addresses".formatted(MAX_ADDRESSES_PER_USER));
+            throw new ApiException(ErrorCode.ADDRESS_LIMIT_EXCEEDED);
         }
+    }
+
+    private static String blankTo(String preferred, String fallback) {
+        if (preferred == null || preferred.isBlank()) {
+            return fallback;
+        }
+        return preferred.trim();
     }
 }

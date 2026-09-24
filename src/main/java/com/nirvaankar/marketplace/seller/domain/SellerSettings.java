@@ -27,6 +27,9 @@ public class SellerSettings {
     @Column(name = "cod_available", nullable = false)
     private boolean codAvailable;
 
+    @Column(name = "pickup_address_id")
+    private Long pickupAddressId;
+
     protected SellerSettings() {
     }
 
@@ -36,6 +39,10 @@ public class SellerSettings {
         settings.returnWindowDays = 7;
         settings.codAvailable = true;
         return settings;
+    }
+
+    public void setPickupAddressId(Long pickupAddressId) {
+        this.pickupAddressId = pickupAddressId;
     }
 
     public void updatePolicies(String shippingPolicy, String returnPolicy, Integer returnWindowDays, Boolean codAvailable) {

@@ -51,6 +51,12 @@ public class CustomerOrder {
     @Column(name = "shipping_minor", nullable = false)
     private long shippingMinor;
 
+    @Column(name = "platform_fee_minor", nullable = false)
+    private long platformFeeMinor;
+
+    @Column(name = "payment_gateway_fee_minor", nullable = false)
+    private long paymentGatewayFeeMinor;
+
     @Column(name = "grand_total_minor", nullable = false)
     private long grandTotalMinor;
 
@@ -79,7 +85,8 @@ public class CustomerOrder {
     }
 
     public static CustomerOrder place(UUID publicId, String orderNumber, Long userId, String currency,
-                                      long subtotal, long tax, long shipping, long grand,
+                                      long subtotal, long tax, long shipping, long platformFee,
+                                      long paymentGatewayFee, long grand,
                                       Map<String, Object> shippingAddress) {
         CustomerOrder order = new CustomerOrder();
         order.publicId = publicId;
@@ -90,6 +97,8 @@ public class CustomerOrder {
         order.discountMinor = 0L;
         order.taxMinor = tax;
         order.shippingMinor = shipping;
+        order.platformFeeMinor = platformFee;
+        order.paymentGatewayFeeMinor = paymentGatewayFee;
         order.grandTotalMinor = grand;
         order.paymentStatus = "pending";
         order.orderStatus = "pending";

@@ -99,7 +99,7 @@ public class AddressController {
         return new AddressResponse(
                 address.getId(), address.getLabel(), address.getContactName(),
                 address.getContactPhone(), address.getLine1(), address.getLine2(),
-                address.getLandmark(), address.getCity(), address.getState(),
+                address.getLandmark(), address.getCity(), address.getDistrict(), address.getState(),
                 address.getPincode(), address.getCountryCode(),
                 address.getLatitude(), address.getLongitude(), address.isDefaultAddress());
     }

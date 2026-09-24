@@ -64,7 +64,24 @@ public final class AuthRequests {
             String storeName,
             @jakarta.validation.constraints.AssertTrue(message = "You must accept the Terms & Conditions")
             boolean acceptTerms,
-            @Valid DevicePayload device) {
+            @Valid DevicePayload device,
+            @Size(min = 15, max = 15) String gstin,
+            @Valid PickupAddressPayload pickupAddress) {
+    }
+
+    /** Optional pickup address captured during seller registration or settings. */
+    public record PickupAddressPayload(
+            @NotBlank @Size(max = 100) String contactName,
+            @NotBlank @Pattern(regexp = "^\\+[1-9]\\d{7,14}$|^[6-9]\\d{9}$",
+                    message = "contactPhone must be E.164 or a 10-digit Indian mobile")
+            String contactPhone,
+            @NotBlank @Size(max = 255) String line1,
+            @Size(max = 255) String line2,
+            @Size(max = 255) String landmark,
+            @NotBlank @Size(max = 100) String city,
+            @NotBlank @Size(max = 100) String state,
+            @NotBlank @Pattern(regexp = "^[1-9][0-9]{5}$", message = "pincode must be 6 digits")
+            String pincode) {
     }
 
     public record PasswordLoginRequest(
@@ -74,11 +91,15 @@ public final class AuthRequests {
     }
 
     public record OtpRequestPayload(
-            @NotBlank @Pattern(regexp = "^\\+[1-9]\\d{7,14}$") String phone) {
+            @NotBlank @Pattern(regexp = "^\\+[1-9]\\d{7,14}$|^[6-9]\\d{9}$",
+                    message = "phone must be E.164 or a 10-digit Indian mobile")
+            String phone) {
     }
 
     public record OtpLoginRequest(
-            @NotBlank @Pattern(regexp = "^\\+[1-9]\\d{7,14}$") String phone,
+            @NotBlank @Pattern(regexp = "^\\+[1-9]\\d{7,14}$|^[6-9]\\d{9}$",
+                    message = "phone must be E.164 or a 10-digit Indian mobile")
+            String phone,
             @NotBlank @Size(min = 4, max = 8) String code,
             @Valid DevicePayload device) {
     }
@@ -112,6 +133,9 @@ public final class AuthRequests {
             @NotBlank @Size(min = 8, max = 72) String password,
             @Size(max = 100) String firstName,
             @Size(max = 100) String lastName,
+            @NotBlank @Pattern(regexp = "MALE|FEMALE|OTHER|PREFER_NOT_TO_SAY",
+                    message = "gender must be MALE, FEMALE, OTHER, or PREFER_NOT_TO_SAY")
+            String gender,
             @Valid DevicePayload device) {
     }
 
@@ -132,7 +156,9 @@ public final class AuthRequests {
             String storeName,
             @jakarta.validation.constraints.AssertTrue(message = "You must accept the Terms & Conditions")
             boolean acceptTerms,
-            @Valid DevicePayload device) {
+            @Valid DevicePayload device,
+            @Size(min = 15, max = 15) String gstin,
+            @Valid PickupAddressPayload pickupAddress) {
     }
 
     public record ForgotPasswordRequest(
@@ -149,5 +175,27 @@ public final class AuthRequests {
                     message = "Password must include at least one letter and one number")
             String newPassword,
             @NotBlank String confirmPassword) {
+    }
+
+    /** Generic phone OTP (login-independent). Optional userType for client context only. */
+    public enum SmsUserType {
+        CUSTOMER,
+        SELLER
+    }
+
+    public record SmsOtpRequestPayload(
+            @NotBlank
+            @Pattern(regexp = "^\\+?91?[6-9]\\d{9}$|^[6-9]\\d{9}$|^\\+[1-9]\\d{7,14}$",
+                    message = "Enter a valid Indian mobile number")
+            String phone,
+            SmsUserType userType) {
+    }
+
+    public record SmsOtpVerifyPayload(
+            @NotBlank
+            @Pattern(regexp = "^\\+?91?[6-9]\\d{9}$|^[6-9]\\d{9}$|^\\+[1-9]\\d{7,14}$",
+                    message = "Enter a valid Indian mobile number")
+            String phone,
+            @NotBlank @Size(min = 4, max = 8) String otp) {
     }
 }

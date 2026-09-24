@@ -9,6 +9,8 @@ import com.nirvaankar.marketplace.catalog.service.dto.CatalogDtos.ProductCardRes
 import com.nirvaankar.marketplace.catalog.service.dto.CatalogDtos.ProductDetailResponse;
 import com.nirvaankar.marketplace.common.pagination.CursorPage;
 import com.nirvaankar.marketplace.common.storage.S3StorageService.S3ObjectStream;
+import com.nirvaankar.marketplace.platform.service.PaymentChargeConfigService;
+import com.nirvaankar.marketplace.platform.service.PaymentChargeConfigService.SellerPricePreview;
 import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.CategoryNode;
 import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.CategorySearchHit;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +44,7 @@ public class CatalogController {
     private final ProductImageService productImageService;
     private final CategoryQueryService categoryQueryService;
     private final CategoryImageService categoryImageService;
+    private final PaymentChargeConfigService paymentChargeConfigService;
 
     @GetMapping("/categories")
     @Operation(summary = "List active categories")
@@ -80,6 +84,14 @@ public class CatalogController {
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit) {
         return catalogService.listProducts(category, q, cursor, limit);
+    }
+
+    @GetMapping("/price-preview")
+    @Operation(summary = "Customer payable breakdown for a unit selling price (DB charge configs)")
+    public SellerPricePreview pricePreview(
+            @RequestParam @Min(0) long sellingPriceMinor,
+            @RequestParam(required = false, defaultValue = "0") BigDecimal gstRate) {
+        return paymentChargeConfigService.sellerPreview(sellingPriceMinor, gstRate, BigDecimal.ZERO, "INR");
     }
 
     @GetMapping("/products/{idOrSlug}")

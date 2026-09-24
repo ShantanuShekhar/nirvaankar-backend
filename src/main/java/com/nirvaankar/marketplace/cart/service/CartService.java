@@ -17,6 +17,7 @@ import com.nirvaankar.marketplace.common.pricing.TaxCalculator;
 import com.nirvaankar.marketplace.common.pricing.Totals;
 import com.nirvaankar.marketplace.identity.service.UserAddressService;
 import com.nirvaankar.marketplace.identity.service.dto.AddressSnapshot;
+import com.nirvaankar.marketplace.platform.service.PaymentChargeConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,7 @@ public class CartService {
     private final CatalogService catalogService;
     private final TaxCalculator taxCalculator;
     private final ShippingCalculator shippingCalculator;
+    private final PaymentChargeConfigService paymentChargeConfigService;
     private final UserAddressService userAddressService;
 
     @Transactional
@@ -146,9 +148,11 @@ public class CartService {
             subtotal += quote.subtotalMinor();
             tax += quote.taxMinor();
         }
-        long shipping = views.isEmpty() ? 0L : shippingCalculator.shippingMinor(subtotal);
-        Totals totals = Totals.of(subtotal, 0L, tax, shipping, cart.getCurrency());
-        return new CartView(cart.getPublicId(), views, totals, buyerState);
+        if (views.isEmpty()) {
+            return new CartView(cart.getPublicId(), views, Totals.of(0L, 0L, 0L, 0L, cart.getCurrency()), buyerState);
+        }
+        var quote = paymentChargeConfigService.quoteCharges(subtotal, tax, cart.getCurrency());
+        return new CartView(cart.getPublicId(), views, quote.totals(), buyerState);
     }
 
     private Cart loadOrCreateCart(Long userId) {

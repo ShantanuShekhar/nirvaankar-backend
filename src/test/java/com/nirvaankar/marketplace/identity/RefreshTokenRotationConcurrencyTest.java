@@ -39,7 +39,7 @@ class RefreshTokenRotationConcurrencyTest extends AbstractIntegrationTest {
     void concurrentRefreshAllowsExactlyOneWinner() throws Exception {
         AuthenticatedSession session = authService.registerWithPassword(
                 "racer" + System.nanoTime() + "@nirvaankar.test", null, "kumhaar-1947",
-                "Race", "Tester", null,
+                "Race", "Tester", null, null,
                 new DeviceRegistration("device-" + System.nanoTime(), "android",
                         "1.0.0", "14", "Pixel", "en-IN", "Asia/Kolkata", null));
 

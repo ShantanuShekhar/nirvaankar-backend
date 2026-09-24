@@ -39,6 +39,31 @@ Use a Gmail **App Password** (Google Account → Security → 2-Step Verificatio
 Auth business logic talks to `EmailService` only — replace `GmailSmtpEmailService` with an SES
 implementation when you outgrow the free SMTP tier.
 
+### SMS OTP (Fast2SMS Quick SMS, route=q)
+
+```bash
+export FAST2SMS_API_KEY='your-fast2sms-api-key'
+# optional: export FAST2SMS_API_URL=https://fast2sms.com
+```
+
+OTP business logic talks to `SmsService` only — swap `Fast2SmsOtpService` later without
+touching controllers.
+
+### Seller KYC (GST via gstinapi.in + Reverse Penny Drop)
+
+```bash
+export GST_VERIFICATION_API_KEY='your-gstinapi-in-key'
+export GST_VERIFICATION_BASE_URL='https://www.gstinapi.in/v1'
+export BANK_VERIFICATION_API_KEY='...'
+export BANK_VERIFICATION_BASE_URL='https://your-bank-provider/v1'
+# Required to encrypt bank account numbers at rest (Base64 of 32 bytes)
+export NIRVAANKAR_DATA_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+```
+
+GST adapter calls `GET {base}/gstin/{GSTIN}` with header `x-api-key`. Without
+`GST_VERIFICATION_API_KEY`, a logging stub allows UI testing.
+Bank adapters remain interface-based (`BankVerificationPort`).
+
 - API docs: http://localhost:8080/swagger-ui.html
 - Health: http://localhost:8080/actuator/health
 
@@ -58,6 +83,8 @@ Tests need Docker (Testcontainers spins up a real MySQL):
 | 1 | `common` foundation + full **identity** module + idempotency | done |
 | 1 | **Complete database schema — all 14 modules, every table** | done |
 | 1b | Email OTP registration + forgot-password (Gmail SMTP) | done |
+| 1c | SMS OTP via Fast2SMS (Quick SMS route=q) — shared customer/seller | done |
+| 1d | Seller KYC: GST + bank Reverse Penny Drop onboarding | done |
 | 2 | Seller onboarding + catalog service code | schema ready, Java pending |
 | 3 | Inventory, cart, orders service code | schema ready, Java pending |
 | 4 | Payments, ledger, payouts service code | schema ready, Java pending |

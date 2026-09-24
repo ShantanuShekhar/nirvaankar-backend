@@ -4,6 +4,7 @@ import com.nirvaankar.marketplace.catalog.repository.TaxCategoryRepository;
 import com.nirvaankar.marketplace.catalog.service.CategoryAttributeService;
 import com.nirvaankar.marketplace.catalog.service.CategoryQueryService;
 import com.nirvaankar.marketplace.common.security.AuthPrincipal;
+import com.nirvaankar.marketplace.platform.service.PaymentChargeConfigService;
 import com.nirvaankar.marketplace.seller.domain.CatalogImportJob;
 import com.nirvaankar.marketplace.seller.service.CatalogBulkImportService;
 import com.nirvaankar.marketplace.seller.service.SellerAccessGuard;
@@ -13,6 +14,7 @@ import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.CategoryN
 import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.CategoryPathView;
 import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.CategorySearchHit;
 import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.ImportJobView;
+import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.SellerPricePreviewView;
 import com.nirvaankar.marketplace.seller.service.dto.SellerCatalogDtos.TaxCategoryView;
 import com.nirvaankar.marketplace.common.config.NirvaankarProperties;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +24,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,6 +37,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,6 +53,8 @@ public class SellerCatalogImportController {
     private final TaxCategoryRepository taxCategoryRepository;
     private final SellerAccessGuard sellerAccessGuard;
     private final NirvaankarProperties properties;
+    private final PaymentChargeConfigService paymentChargeConfigService;
+    private final JdbcTemplate jdbcTemplate;
 
     @GetMapping("/categories/tree")
     @PreAuthorize("hasAuthority('product.edit')")
@@ -101,6 +107,49 @@ public class SellerCatalogImportController {
         return new CatalogLimitsView(
                 c.maxSellingPriceMinor(), c.maxDiscountPercentFromMrp(),
                 c.maxImagesPerProduct(), c.maxImageBytes());
+    }
+
+    @GetMapping("/price-preview")
+    @PreAuthorize("hasAuthority('product.edit')")
+    @Operation(summary = "Customer payable and seller receivable breakdown for a selling price")
+    public SellerPricePreviewView pricePreview(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestParam long sellingPriceMinor,
+            @RequestParam(required = false) Integer taxCategoryId) {
+        Long sellerId = sellerAccessGuard.requireSellerId(principal);
+        if (sellingPriceMinor < 0) {
+            throw new com.nirvaankar.marketplace.common.error.ApiException(
+                    com.nirvaankar.marketplace.common.error.ErrorCode.VALIDATION_FAILED,
+                    "sellingPriceMinor must be >= 0");
+        }
+        BigDecimal gstRate = BigDecimal.ZERO;
+        if (taxCategoryId != null) {
+            gstRate = taxCategoryRepository.findById(taxCategoryId)
+                    .map(t -> t.getGstRate())
+                    .orElse(BigDecimal.ZERO);
+        }
+        BigDecimal commission = jdbcTemplate.query(
+                "SELECT default_commission_rate FROM sellers WHERE id = ? LIMIT 1",
+                rs -> rs.next() ? rs.getBigDecimal(1) : BigDecimal.TEN,
+                sellerId);
+        if (commission == null) {
+            commission = BigDecimal.TEN;
+        }
+        var preview = paymentChargeConfigService.sellerPreview(sellingPriceMinor, gstRate, commission, "INR");
+        return new SellerPricePreviewView(
+                preview.basePriceMinor(),
+                preview.productGstMinor(),
+                preview.shippingMinor(),
+                preview.shippingGstMinor(),
+                preview.platformFeeMinor(),
+                preview.platformFeeGstMinor(),
+                preview.paymentGatewayFeeMinor(),
+                preview.sellingInclTaxMinor(),
+                preview.customerPayableMinor(),
+                preview.commissionRatePercent(),
+                preview.commissionMinor(),
+                preview.sellerReceivableMinor(),
+                preview.currency());
     }
 
     @GetMapping(value = "/template", produces = "text/csv")

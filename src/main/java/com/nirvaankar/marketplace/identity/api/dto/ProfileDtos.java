@@ -23,6 +23,7 @@ public final class ProfileDtos {
                              String lastName,
                              String avatarUrl,
                              String locale,
+                             String gender,
                              LocalDate dateOfBirth,
                              Set<String> roles,
                              Instant createdAt) {
@@ -30,13 +31,30 @@ public final class ProfileDtos {
 
     public record UpdateProfileRequest(@Size(max = 100) String firstName,
                                        @Size(max = 100) String lastName,
-                                       @Size(max = 20) String gender,
+                                       @Pattern(regexp = "MALE|FEMALE|OTHER|PREFER_NOT_TO_SAY",
+                                               message = "gender must be MALE, FEMALE, OTHER, or PREFER_NOT_TO_SAY")
+                                       String gender,
                                        LocalDate dateOfBirth,
                                        @Pattern(regexp = "^[a-z]{2}-[A-Z]{2}$", message = "locale must look like hi-IN")
                                        String locale) {
     }
 
     public record ChangeAvatarRequest(@NotBlank String avatarUrl) {
+    }
+
+    public record ChangePhoneRequest(
+            @NotBlank
+            @Pattern(regexp = "^\\+?91?[6-9]\\d{9}$|^[6-9]\\d{9}$|^\\+[1-9]\\d{7,14}$",
+                    message = "Enter a valid Indian mobile number")
+            String phone) {
+    }
+
+    public record VerifyPhoneChangeRequest(
+            @NotBlank
+            @Pattern(regexp = "^\\+?91?[6-9]\\d{9}$|^[6-9]\\d{9}$|^\\+[1-9]\\d{7,14}$",
+                    message = "Enter a valid Indian mobile number")
+            String phone,
+            @NotBlank @Size(min = 4, max = 8) String otp) {
     }
 
     public record DeviceResponse(Long deviceId,

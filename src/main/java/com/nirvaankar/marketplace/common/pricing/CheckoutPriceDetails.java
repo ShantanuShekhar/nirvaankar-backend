@@ -4,9 +4,6 @@ import com.nirvaankar.marketplace.catalog.service.dto.CatalogDtos.SellableVarian
 
 /**
  * Builds the Flipkart-style price sheet from tax-exclusive catalog prices.
- * <p>
- * MRP (incl. taxes) uses compare-at when higher than selling price; otherwise selling.
- * Protect Promise Fee reuses the configured shipping/fee amount for the order.
  */
 public final class CheckoutPriceDetails {
 
@@ -24,16 +21,39 @@ public final class CheckoutPriceDetails {
     }
 
     public static PriceBreakdown of(long mrpInclTaxMinor, long sellingInclTaxMinor, long feeMinor, String currency) {
+        return PriceBreakdown.of(mrpInclTaxMinor, sellingInclTaxMinor, feeMinor, currency);
+    }
+
+    public static PriceBreakdown detailed(
+            long mrpInclTaxMinor,
+            long sellingInclTaxMinor,
+            long productTaxMinor,
+            long shippingMinor,
+            long shippingGstMinor,
+            long platformFeeMinor,
+            long platformFeeGstMinor,
+            long paymentGatewayFeeMinor,
+            String feeLabel,
+            String currency) {
+        long fee = Math.max(0L, shippingMinor) + Math.max(0L, platformFeeMinor)
+                + Math.max(0L, shippingGstMinor) + Math.max(0L, platformFeeGstMinor)
+                + Math.max(0L, paymentGatewayFeeMinor);
         long discount = Math.max(0L, mrpInclTaxMinor - sellingInclTaxMinor);
-        long total = sellingInclTaxMinor + Math.max(0L, feeMinor);
-        long savings = Math.max(0L, discount - Math.max(0L, feeMinor));
+        long total = sellingInclTaxMinor + fee;
+        long savings = Math.max(0L, discount - fee);
         return new PriceBreakdown(
                 mrpInclTaxMinor,
                 discount,
-                Math.max(0L, feeMinor),
+                fee,
                 total,
                 savings,
-                PROTECT_PROMISE_FEE_LABEL,
-                currency);
+                feeLabel == null || feeLabel.isBlank() ? PROTECT_PROMISE_FEE_LABEL : feeLabel,
+                currency,
+                Math.max(0L, shippingMinor),
+                Math.max(0L, platformFeeMinor),
+                Math.max(0L, shippingGstMinor),
+                Math.max(0L, platformFeeGstMinor),
+                Math.max(0L, paymentGatewayFeeMinor),
+                Math.max(0L, productTaxMinor));
     }
 }

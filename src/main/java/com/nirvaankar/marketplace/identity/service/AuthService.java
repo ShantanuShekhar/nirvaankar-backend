@@ -6,6 +6,7 @@ import com.nirvaankar.marketplace.common.error.ErrorCode;
 import com.nirvaankar.marketplace.common.id.UuidV7;
 import com.nirvaankar.marketplace.common.ratelimit.RateLimiter;
 import com.nirvaankar.marketplace.identity.domain.Device;
+import com.nirvaankar.marketplace.identity.domain.Gender;
 import com.nirvaankar.marketplace.identity.domain.OtpRequest;
 import com.nirvaankar.marketplace.identity.domain.Role;
 import com.nirvaankar.marketplace.identity.domain.User;
@@ -61,7 +62,7 @@ public class AuthService {
     @Transactional
     public AuthenticatedSession registerWithPassword(String email, String phone, String rawPassword,
                                                      String firstName, String lastName, String locale,
-                                                     DeviceRegistration deviceRegistration) {
+                                                     String gender, DeviceRegistration deviceRegistration) {
         ensureEmailAvailable(email);
         ensurePhoneAvailable(phone);
 
@@ -69,7 +70,8 @@ public class AuthService {
         User user = userRepository.save(User.registerWithPassword(
                 UuidV7.generate(), normalise(email), phone, passwordEncoder.encode(rawPassword)));
 
-        userProfileRepository.save(new UserProfile(user.getId(), firstName, lastName, locale));
+        String normalisedGender = Gender.normalizeOptional(gender);
+        userProfileRepository.save(new UserProfile(user.getId(), firstName, lastName, locale, normalisedGender));
         userIdentityRepository.save(new UserIdentity(
                 user.getId(), UserIdentity.PROVIDER_PASSWORD,
                 normalise(email) != null ? normalise(email) : phone, normalise(email), true, now));

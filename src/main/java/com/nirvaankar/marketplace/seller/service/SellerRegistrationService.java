@@ -3,9 +3,12 @@ package com.nirvaankar.marketplace.seller.service;
 import com.nirvaankar.marketplace.common.error.ApiException;
 import com.nirvaankar.marketplace.common.error.ErrorCode;
 import com.nirvaankar.marketplace.common.id.UuidV7;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.PickupAddressPayload;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.SellerRegisterRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.SellerRegisterResponse;
 import com.nirvaankar.marketplace.identity.service.AuthService;
+import com.nirvaankar.marketplace.identity.service.PhoneNumbers;
+import com.nirvaankar.marketplace.identity.service.UserAddressService;
 import com.nirvaankar.marketplace.seller.domain.Seller;
 import com.nirvaankar.marketplace.seller.domain.SellerSettings;
 import com.nirvaankar.marketplace.seller.repository.SellerRepository;
@@ -31,6 +34,8 @@ public class SellerRegistrationService {
     private final AuthService authService;
     private final SellerRepository sellerRepository;
     private final SellerSettingsRepository sellerSettingsRepository;
+    private final SellerOnboardingService sellerOnboardingService;
+    private final UserAddressService userAddressService;
 
     @Transactional
     public SellerRegisterResponse register(SellerRegisterRequest request) {
@@ -56,8 +61,19 @@ public class SellerRegistrationService {
 
         Seller seller = sellerRepository.save(
                 Seller.createPending(UuidV7.generate(), account.userId(), storeName, storeSlug));
-        sellerSettingsRepository.save(SellerSettings.defaults(seller.getId()));
+        SellerSettings settings = sellerSettingsRepository.save(SellerSettings.defaults(seller.getId()));
         authService.grantSellerRole(account.userId(), seller.getId());
+
+        if (request.gstin() != null && !request.gstin().isBlank()) {
+            sellerOnboardingService.applyGstForNewSeller(seller.getId(), request.gstin(), storeName);
+            // Prefer GST legal/trade name for store display only when seller left a placeholder-like name.
+            // Do not overwrite a deliberately different store name.
+        }
+
+        if (request.pickupAddress() != null) {
+            Long addressId = savePickupAddress(account.userId(), request.pickupAddress(), storeName, phone);
+            settings.setPickupAddressId(addressId);
+        }
 
         log.info("Registered seller {} for user {} store={}", seller.getId(), account.userId(), storeSlug);
         return new SellerRegisterResponse(
@@ -67,6 +83,38 @@ public class SellerRegistrationService {
                 seller.getStoreSlug(),
                 seller.getStatus(),
                 "Seller registration successful. Please log in to continue.");
+    }
+
+    private Long savePickupAddress(Long userId, PickupAddressPayload pickup, String storeName, String phone) {
+        String contactPhone;
+        try {
+            contactPhone = PhoneNumbers.normalizeIndianMobile(pickup.contactPhone());
+        } catch (ApiException ex) {
+            if (phone != null && !phone.isBlank()) {
+                contactPhone = PhoneNumbers.normalizeIndianMobile(phone);
+            } else {
+                throw ex;
+            }
+        }
+        String contactName = pickup.contactName() == null || pickup.contactName().isBlank()
+                ? storeName
+                : pickup.contactName().trim();
+        var saved = userAddressService.addAddress(
+                userId,
+                "pickup",
+                contactName,
+                contactPhone,
+                pickup.line1().trim(),
+                blankToNull(pickup.line2()),
+                blankToNull(pickup.landmark()),
+                pickup.city().trim(),
+                pickup.state().trim(),
+                pickup.pincode().trim(),
+                "IN",
+                null,
+                null,
+                true);
+        return saved.getId();
     }
 
     private String uniqueSlug(String storeName) {

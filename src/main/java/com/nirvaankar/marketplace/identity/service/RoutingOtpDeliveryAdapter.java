@@ -1,14 +1,15 @@
 package com.nirvaankar.marketplace.identity.service;
 
 import com.nirvaankar.marketplace.notification.email.AsyncEmailDispatcher;
+import com.nirvaankar.marketplace.notification.sms.AsyncSmsDispatcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
- * Routes OTP delivery by destination. Email is queued on the mail executor
- * so registration/login requests return without waiting for SMTP.
+ * Routes OTP delivery by destination. Email → mail executor; phone → SMS executor.
+ * Request threads never wait on SMTP or Fast2SMS.
  */
 @Slf4j
 @Component
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 public class RoutingOtpDeliveryAdapter implements OtpDeliveryPort {
 
     private final AsyncEmailDispatcher asyncEmailDispatcher;
+    private final AsyncSmsDispatcher asyncSmsDispatcher;
 
     @Override
     public void deliverOtp(String destination, String code, String purpose) {
@@ -25,8 +27,13 @@ public class RoutingOtpDeliveryAdapter implements OtpDeliveryPort {
             log.info("OTP email queued for {} purpose {}", maskDestination(destination), purpose);
             return;
         }
-        log.info("OTP dispatched to {} for purpose {} (SMS gateway not configured)",
-                maskDestination(destination), purpose);
+        if (destination != null && PhoneNumbers.isIndianMobile(destination)) {
+            String e164 = PhoneNumbers.normalizeIndianMobile(destination);
+            asyncSmsDispatcher.sendOtpSmsAsync(e164, code);
+            log.info("OTP SMS queued for {} purpose {}", maskDestination(e164), purpose);
+            return;
+        }
+        log.warn("OTP not delivered — unrecognised destination shape for purpose {}", purpose);
     }
 
     private String maskDestination(String destination) {
@@ -37,6 +44,6 @@ public class RoutingOtpDeliveryAdapter implements OtpDeliveryPort {
             int at = destination.indexOf('@');
             return destination.charAt(0) + "***" + destination.substring(at);
         }
-        return "***" + destination.substring(destination.length() - 4);
+        return PhoneNumbers.mask(destination);
     }
 }

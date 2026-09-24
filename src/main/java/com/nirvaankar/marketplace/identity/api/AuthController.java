@@ -2,6 +2,8 @@ package com.nirvaankar.marketplace.identity.api;
 
 import com.nirvaankar.marketplace.common.config.NirvaankarProperties;
 import com.nirvaankar.marketplace.common.security.AuthPrincipal;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.SmsOtpRequestPayload;
+import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.SmsOtpVerifyPayload;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.CompleteCustomerRegisterRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.CompleteSellerRegisterRequest;
 import com.nirvaankar.marketplace.identity.api.dto.AuthRequests.ForgotPasswordRequest;
@@ -23,7 +25,9 @@ import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.SessionResponse
 import com.nirvaankar.marketplace.identity.api.dto.AuthResponses.TokenResponse;
 import com.nirvaankar.marketplace.identity.service.AuthService;
 import com.nirvaankar.marketplace.identity.service.PasswordResetService;
+import com.nirvaankar.marketplace.identity.service.PhoneNumbers;
 import com.nirvaankar.marketplace.identity.service.RegistrationEmailAuthService;
+import com.nirvaankar.marketplace.identity.service.SmsOtpService;
 import com.nirvaankar.marketplace.identity.service.dto.DeviceRegistration;
 import com.nirvaankar.marketplace.seller.service.SellerRegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,6 +61,7 @@ public class AuthController {
     private final SellerRegistrationService sellerRegistrationService;
     private final RegistrationEmailAuthService registrationEmailAuthService;
     private final PasswordResetService passwordResetService;
+    private final SmsOtpService smsOtpService;
     private final NirvaankarProperties properties;
 
     @PostMapping("/register")
@@ -66,7 +71,7 @@ public class AuthController {
         DeviceRegistration device = request.device() == null ? null : request.device().toRegistration();
         var session = authService.registerWithPassword(
                 request.email(), request.phone(), request.password(),
-                request.firstName(), request.lastName(), null, device);
+                request.firstName(), request.lastName(), null, null, device);
         log.info("Registration successful for user ID: {}", session.userPublicId());
         return ResponseEntity.status(HttpStatus.CREATED).body(SessionResponse.from(session));
     }
@@ -89,6 +94,13 @@ public class AuthController {
             @Valid @RequestBody CompleteCustomerRegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(registrationEmailAuthService.completeCustomer(request));
+    }
+
+    @PostMapping("/register/gst/preview")
+    @Operation(summary = "Optional GSTIN preview after email OTP (does not create seller)")
+    public com.nirvaankar.marketplace.seller.api.dto.SellerOnboardingDtos.GstPreviewResponse previewGst(
+            @Valid @RequestBody com.nirvaankar.marketplace.seller.api.dto.SellerOnboardingDtos.GstPreviewRequest request) {
+        return registrationEmailAuthService.previewGst(request);
     }
 
     @PostMapping("/register/complete-seller")
@@ -139,11 +151,11 @@ public class AuthController {
     @PostMapping("/otp/request")
     @Operation(summary = "Send a login OTP to a phone number")
     public OtpChallengeResponse requestLoginOtp(@Valid @RequestBody OtpRequestPayload request) {
-        log.info("OTP request received for phone: {}", request.phone());
-        String issuedCode = authService.requestLoginOtp(request.phone());
+        String phone = PhoneNumbers.normalizeIndianMobile(request.phone());
+        log.info("OTP request received for phone: {}", PhoneNumbers.mask(phone));
+        String issuedCode = authService.requestLoginOtp(phone);
         String devCode = properties.otp().exposeInResponse() ? issuedCode : null;
-        log.info("OTP sent to phone: {}, devCode: {}", maskDestination(request.phone()), devCode);
-        return new OtpChallengeResponse(maskDestination(request.phone()),
+        return new OtpChallengeResponse(PhoneNumbers.mask(phone),
                 (int) properties.otp().ttl().toSeconds(),
                 (int) properties.otp().resendCooldown().toSeconds(),
                 devCode);
@@ -152,11 +164,24 @@ public class AuthController {
     @PostMapping("/otp/verify")
     @Operation(summary = "Exchange a valid OTP for a session")
     public SessionResponse loginWithOtp(@Valid @RequestBody OtpLoginRequest request) {
-        log.info("OTP verification request received for phone: {}", request.phone());
+        String phone = PhoneNumbers.normalizeIndianMobile(request.phone());
+        log.info("OTP verification request received for phone: {}", PhoneNumbers.mask(phone));
         DeviceRegistration device = request.device() == null ? null : request.device().toRegistration();
-        var session = authService.loginWithOtp(request.phone(), request.code(), device);
+        var session = authService.loginWithOtp(phone, request.code(), device);
         log.info("OTP login successful for user ID: {}", session.userPublicId());
         return SessionResponse.from(session);
+    }
+
+    @PostMapping("/otp/sms/request-otp")
+    @Operation(summary = "Send a generic phone verification OTP via SMS (Fast2SMS)")
+    public OtpChallengeResponse requestSmsOtp(@Valid @RequestBody SmsOtpRequestPayload request) {
+        return smsOtpService.requestOtp(request);
+    }
+
+    @PostMapping("/otp/sms/verify-otp")
+    @Operation(summary = "Verify a generic phone OTP (does not create a session)")
+    public MessageResponse verifySmsOtp(@Valid @RequestBody SmsOtpVerifyPayload request) {
+        return smsOtpService.verifyOtp(request);
     }
 
     @PostMapping("/refresh")
@@ -184,13 +209,5 @@ public class AuthController {
         log.info("Logout all devices request received for user ID: {}", principal.userId());
         authService.logoutAllDevices(principal.userId());
         log.info("Logout all devices completed for user ID: {}", principal.userId());
-    }
-
-    /** Shows only enough of the destination for the user to recognise it. */
-    private String maskDestination(String phone) {
-        if (phone == null || phone.length() < 4) {
-            return "****";
-        }
-        return "*".repeat(phone.length() - 4) + phone.substring(phone.length() - 4);
     }
 }

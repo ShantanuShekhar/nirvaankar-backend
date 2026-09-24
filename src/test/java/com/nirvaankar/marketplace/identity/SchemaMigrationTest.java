@@ -23,6 +23,8 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
             "users", "user_identities", "user_profiles", "roles", "permissions",
             "role_permissions", "user_roles", "refresh_tokens", "otp_requests",
             "devices", "user_addresses",
+            "geo_countries", "geo_states", "geo_districts", "geo_localities", "geo_pincodes",
+            "payment_charge_configs",
             // seller
             "sellers", "seller_settings", "seller_bank_accounts", "seller_kyc_documents",
             // catalog

@@ -13,6 +13,7 @@ public record AddressSnapshot(
         String line2,
         String landmark,
         String city,
+        String district,
         String state,
         String pincode,
         String countryCode) {
@@ -20,7 +21,7 @@ public record AddressSnapshot(
     public static AddressSnapshot from(UserAddress address) {
         return new AddressSnapshot(address.getId(), address.getContactName(), address.getContactPhone(),
                 address.getLine1(), address.getLine2(), address.getLandmark(), address.getCity(),
-                address.getState(), address.getPincode(), address.getCountryCode());
+                address.getDistrict(), address.getState(), address.getPincode(), address.getCountryCode());
     }
 
     public Map<String, Object> asJsonMap() {
@@ -31,6 +32,7 @@ public record AddressSnapshot(
         map.put("line2", line2);
         map.put("landmark", landmark);
         map.put("city", city);
+        map.put("district", district);
         map.put("state", state);
         map.put("pincode", pincode);
         map.put("countryCode", countryCode);

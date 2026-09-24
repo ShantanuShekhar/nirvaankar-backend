@@ -43,7 +43,7 @@ class AddressQueryCountTest extends AbstractIntegrationTest {
         userAddressService.listAddresses(userId);
         long oneAddress = queryCounter.getQueryCount();
 
-        Long busyUserId = createUserWithAddresses(25);
+        Long busyUserId = createUserWithAddresses(5);
         queryCounter.reset();
         userAddressService.listAddresses(busyUserId);
         long manyAddresses = queryCounter.getQueryCount();
@@ -58,10 +58,11 @@ class AddressQueryCountTest extends AbstractIntegrationTest {
         String suffix = String.valueOf(System.nanoTime());
         AuthenticatedSession session = authService.registerWithPassword(
                 "buyer" + suffix + "@nirvaankar.test", null, "kumhaar-1947",
-                "Test", "Buyer", null, null);
+                "Test", "Buyer", null, null, null);
 
         Long userId = resolveUserId(session);
-        for (int i = 0; i < addressCount; i++) {
+        int count = Math.min(addressCount, UserAddressService.MAX_ADDRESSES_PER_USER);
+        for (int i = 0; i < count; i++) {
             userAddressService.addAddress(userId, "home", "Test Buyer", "+919000000001",
                     "House " + i, null, null, "Jaipur", "Rajasthan", "302001", "IN",
                     BigDecimal.valueOf(26.9124), BigDecimal.valueOf(75.7873), i == 0);

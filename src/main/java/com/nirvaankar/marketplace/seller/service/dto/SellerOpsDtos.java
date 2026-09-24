@@ -259,7 +259,8 @@ public final class SellerOpsDtos {
             Integer returnWindowDays,
             boolean codAvailable,
             String shippingPolicy,
-            String returnPolicy) {
+            String returnPolicy,
+            com.nirvaankar.marketplace.identity.api.dto.AddressDtos.AddressResponse pickupAddress) {
     }
 
     public record UpdateStoreRequest(

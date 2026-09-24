@@ -249,6 +249,21 @@ public class SellerOpsController {
         return storeService.updateStore(sellerAccessGuard.requireSellerId(principal), request);
     }
 
+    @GetMapping("/store/pickup-address")
+    @Operation(summary = "Get seller pickup address")
+    public com.nirvaankar.marketplace.identity.api.dto.AddressDtos.AddressResponse getPickupAddress(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return storeService.getPickupAddress(sellerAccessGuard.requireSellerId(principal));
+    }
+
+    @PutMapping("/store/pickup-address")
+    @Operation(summary = "Create or update seller pickup address")
+    public com.nirvaankar.marketplace.identity.api.dto.AddressDtos.AddressResponse upsertPickupAddress(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody com.nirvaankar.marketplace.identity.api.dto.AuthRequests.PickupAddressPayload request) {
+        return storeService.upsertPickupAddress(sellerAccessGuard.requireSellerId(principal), request);
+    }
+
     @GetMapping("/kyc")
     public KycStatusView kyc(@AuthenticationPrincipal AuthPrincipal principal) {
         return storeService.kycStatus(sellerAccessGuard.requireSellerId(principal));

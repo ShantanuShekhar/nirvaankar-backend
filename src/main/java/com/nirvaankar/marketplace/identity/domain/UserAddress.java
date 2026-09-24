@@ -53,11 +53,17 @@ public class UserAddress extends SoftDeletableEntity {
     @Column(name = "city", length = 100, nullable = false)
     private String city;
 
+    @Column(name = "district", length = 120)
+    private String district;
+
     @Column(name = "state", length = 100, nullable = false)
     private String state;
 
     @Column(name = "pincode", length = 10, nullable = false)
     private String pincode;
+
+    @Column(name = "pincode_id")
+    private Integer pincodeId;
 
     @Column(name = "country_code", length = 2, nullable = false)
     private String countryCode;
@@ -80,8 +86,8 @@ public class UserAddress extends SoftDeletableEntity {
     }
 
     public UserAddress(Long userId, String label, String contactName, String contactPhone,
-                       String line1, String line2, String landmark, String city, String state,
-                       String pincode, String countryCode, BigDecimal latitude, BigDecimal longitude) {
+                       String line1, String line2, String landmark, String city, String district, String state,
+                       String pincode, Integer pincodeId, String countryCode, BigDecimal latitude, BigDecimal longitude) {
         this.userId = userId;
         this.label = label == null ? "home" : label;
         this.contactName = contactName;
@@ -90,16 +96,18 @@ public class UserAddress extends SoftDeletableEntity {
         this.line2 = line2;
         this.landmark = landmark;
         this.city = city;
+        this.district = district;
         this.state = state;
         this.pincode = pincode;
+        this.pincodeId = pincodeId;
         this.countryCode = countryCode == null ? "IN" : countryCode;
         this.latitude = latitude;
         this.longitude = longitude;
     }
 
     public void updateDetails(String label, String contactName, String contactPhone, String line1,
-                              String line2, String landmark, String city, String state,
-                              String pincode, BigDecimal latitude, BigDecimal longitude) {
+                              String line2, String landmark, String city, String district, String state,
+                              String pincode, Integer pincodeId, BigDecimal latitude, BigDecimal longitude) {
         this.label = label;
         this.contactName = contactName;
         this.contactPhone = contactPhone;
@@ -107,8 +115,10 @@ public class UserAddress extends SoftDeletableEntity {
         this.line2 = line2;
         this.landmark = landmark;
         this.city = city;
+        this.district = district;
         this.state = state;
         this.pincode = pincode;
+        this.pincodeId = pincodeId;
         this.latitude = latitude;
         this.longitude = longitude;
     }

@@ -37,8 +37,8 @@ import java.util.List;
 public class SecurityConfig {
 
 	private static final String[] PUBLIC_PATHS = { "/api/v1/auth/**", "/api/v1/config/**",
-			"/api/v1/payments/webhooks/**", "/webhook", "/actuator/health/**", "/v3/api-docs/**", "/swagger-ui/**",
-			"/swagger-ui.html" };
+			"/api/v1/payments/webhooks/**", "/api/v1/webhooks/**", "/webhook", "/actuator/health/**",
+			"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html" };
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -61,7 +61,8 @@ public class SecurityConfig {
 	public SecurityFilterChain customerFilterChain(HttpSecurity http) throws Exception {
 		return baseChain(http).authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_PATHS).permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
-				.requestMatchers(HttpMethod.GET, "/api/v1/shopping-intentions/**").permitAll().anyRequest()
+				.requestMatchers(HttpMethod.GET, "/api/v1/shopping-intentions/**").permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/v1/locations/**").permitAll().anyRequest()
 				.authenticated()).build();
 	}
 

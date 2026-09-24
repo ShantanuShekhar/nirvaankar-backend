@@ -52,6 +52,36 @@ public class Seller {
     @Column(length = 15)
     private String gstin;
 
+    @Column(name = "gst_verified", nullable = false)
+    private boolean gstVerified;
+
+    @Column(name = "gst_legal_business_name", length = 255)
+    private String gstLegalBusinessName;
+
+    @Column(name = "gst_trade_name", length = 255)
+    private String gstTradeName;
+
+    @Column(name = "gst_registration_status", length = 60)
+    private String gstRegistrationStatus;
+
+    @Column(name = "gst_verified_at")
+    private Instant gstVerifiedAt;
+
+    @Column(name = "gst_needs_manual_review", nullable = false)
+    private boolean gstNeedsManualReview;
+
+    @Column(name = "onboarding_status", nullable = false, length = 30)
+    private String onboardingStatus;
+
+    @Column(name = "bank_verified", nullable = false)
+    private boolean bankVerified;
+
+    @Column(name = "bank_verified_at")
+    private Instant bankVerifiedAt;
+
+    @Column(name = "bank_needs_manual_review", nullable = false)
+    private boolean bankNeedsManualReview;
+
     @Column(nullable = false, length = 20)
     private String status;
 
@@ -75,8 +105,65 @@ public class Seller {
         seller.storeName = storeName.trim();
         seller.storeSlug = storeSlug;
         seller.status = STATUS_PENDING;
+        seller.onboardingStatus = SellerOnboardingStatus.PENDING.name();
+        seller.gstVerified = false;
+        seller.gstNeedsManualReview = false;
+        seller.bankVerified = false;
+        seller.bankNeedsManualReview = false;
         seller.version = 0L;
         return seller;
+    }
+
+    public void applyGstVerification(String gstin, String legalName, String tradeName, String registrationStatus,
+                                     boolean needsReview, Instant now) {
+        this.gstin = gstin;
+        this.gstLegalBusinessName = legalName;
+        this.gstTradeName = tradeName;
+        this.gstRegistrationStatus = registrationStatus;
+        this.gstVerified = true;
+        this.gstVerifiedAt = now;
+        this.gstNeedsManualReview = needsReview;
+        refreshOnboardingStatus();
+    }
+
+    public void applyBankVerification(boolean needsReview, Instant now) {
+        this.bankVerified = true;
+        this.bankVerifiedAt = now;
+        this.bankNeedsManualReview = needsReview;
+        refreshOnboardingStatus();
+    }
+
+    /** Submitted for ops review — payouts remain locked until bankVerified is set. */
+    public void markBankPendingManualApproval() {
+        this.bankVerified = false;
+        this.bankNeedsManualReview = true;
+        refreshOnboardingStatus();
+    }
+
+    public void refreshOnboardingStatus() {
+        if (SellerOnboardingStatus.REJECTED.name().equals(this.onboardingStatus)) {
+            return;
+        }
+        boolean review = gstNeedsManualReview || bankNeedsManualReview;
+        if (gstVerified && bankVerified) {
+            this.onboardingStatus = review
+                    ? SellerOnboardingStatus.NEEDS_REVIEW.name()
+                    : SellerOnboardingStatus.FULLY_VERIFIED.name();
+        } else if (gstVerified) {
+            this.onboardingStatus = review
+                    ? SellerOnboardingStatus.NEEDS_REVIEW.name()
+                    : SellerOnboardingStatus.GST_VERIFIED.name();
+        } else if (bankVerified) {
+            this.onboardingStatus = review
+                    ? SellerOnboardingStatus.NEEDS_REVIEW.name()
+                    : SellerOnboardingStatus.BANK_VERIFIED.name();
+        } else {
+            this.onboardingStatus = SellerOnboardingStatus.PENDING.name();
+        }
+    }
+
+    public boolean isPayoutEligible() {
+        return SellerOnboardingStatus.FULLY_VERIFIED.name().equals(onboardingStatus);
     }
 
     /** Allows storefront products to appear once the seller starts publishing. */

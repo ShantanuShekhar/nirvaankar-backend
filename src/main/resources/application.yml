@@ -6,7 +6,7 @@
 #    audit       max 4   |  webhookRetry max 4  |  report      max 2
 #    Of these, the pools that touch the database are: outbox, audit,
 #    searchIndex, webhookRetry  ->  8 + 4 + 4 + 4 = 20 worker threads.
-#    mail pool (SMTP) does not touch the DB.
+#    mail pool (SMTP) and sms pool (Fast2SMS) do not touch the DB.
 #    Tomcat request threads that touch the DB: bounded at 50 by
 #    server.tomcat.threads.max, but they queue on Hikari rather than
 #    deadlocking because no request holds two connections at once.
@@ -22,6 +22,7 @@ spring:
       - optional:file:.secrets/razorpay.yml
       - optional:file:.secrets/aws.yml
       - optional:file:.secrets/whatsapp.properties
+      - optional:file:.secrets/encryption.yml
   servlet:
     multipart:
       max-file-size: 5MB
@@ -42,7 +43,7 @@ spring:
   jpa:
     open-in-view: false              # MANDATORY. Never true.
     hibernate:
-      ddl-auto: update             # Flyway owns the schema.
+      ddl-auto: validate           # Flyway owns the schema; Hibernate must not mutate it.
     properties:
       hibernate:
         default_batch_fetch_size: 50
@@ -174,6 +175,23 @@ nirvaankar:
     max-discount-percent-from-mrp: 70
     max-images-per-product: 5
     max-image-bytes: 5242880
+  # Fast2SMS Quick SMS (route=q). Only API key is required — set via env, never commit.
+  fast2sms:
+    api-key: ${FAST2SMS_API_KEY:0hZbSHfuvA6qBJrgtjawTiyLmCQzdIexUKoOcn24YXlNVPGRs5T0svSiwgAQRaZYXVFDbC7JGyMEfeW6}
+    api-url: ${FAST2SMS_API_URL:https://www.fast2sms.com}
+    route: q
+  # Seller KYC — GST via gstinapi.in; bank Reverse Penny Drop (generic HTTP)
+  verification:
+    gst:
+      api-key: ${GST_VERIFICATION_API_KEY:gak_92a5b6e0483c414695bc668937d83d5e}
+      base-url: ${GST_VERIFICATION_BASE_URL:https://www.gstinapi.in/v1}
+      connect-timeout-ms: ${GST_VERIFICATION_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${GST_VERIFICATION_READ_TIMEOUT_MS:15000}
+    bank:
+      api-key: ${BANK_VERIFICATION_API_KEY:}
+      base-url: ${BANK_VERIFICATION_BASE_URL:https://api.example-bank-provider.com/v1}
+      initiate-path: ${BANK_VERIFICATION_INITIATE_PATH:/bank/reverse-penny-drop}
+      webhook-secret: ${BANK_VERIFICATION_WEBHOOK_SECRET:}
   s3:
     region: ${AWS_REGION:ap-south-1}
     bucket: ${NIRVAANKAR_S3_BUCKET:nirvaankar}

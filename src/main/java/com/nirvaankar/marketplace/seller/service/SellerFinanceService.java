@@ -19,6 +19,7 @@ import java.util.UUID;
 public class SellerFinanceService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final SellerOnboardingService onboardingService;
 
     @Transactional(readOnly = true)
     public List<ReturnRow> listReturns(Long sellerId, String status) {
@@ -90,6 +91,8 @@ public class SellerFinanceService {
 
     @Transactional(readOnly = true)
     public PaymentSummary payments(Long sellerId) {
+        // Payout visibility is gated by FULLY_VERIFIED onboarding status.
+        onboardingService.requirePayoutEligible(sellerId);
         Long pending = jdbcTemplate.queryForObject("""
                 SELECT COALESCE(SUM(net_payable_minor), 0) FROM seller_payouts
                  WHERE seller_id = ? AND status IN ('pending','approved')
