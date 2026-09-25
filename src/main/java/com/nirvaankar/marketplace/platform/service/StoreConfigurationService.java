@@ -6,7 +6,10 @@ import com.nirvaankar.marketplace.common.storage.ProductImageKeys;
 import com.nirvaankar.marketplace.common.storage.S3StorageService;
 import com.nirvaankar.marketplace.common.storage.S3StorageService.S3ObjectStream;
 import com.nirvaankar.marketplace.platform.domain.StoreConfiguration;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nirvaankar.marketplace.platform.repository.StoreConfigurationRepository;
+import com.nirvaankar.marketplace.platform.service.dto.StoreConfigDtos.ReturnReasonOption;
 import com.nirvaankar.marketplace.platform.service.dto.StoreConfigDtos.StoreConfigEntry;
 import com.nirvaankar.marketplace.platform.service.dto.StoreConfigDtos.StoreConfigView;
 import com.nirvaankar.marketplace.platform.service.dto.StoreConfigDtos.UpdateStoreConfigRequest;
@@ -27,12 +30,14 @@ public class StoreConfigurationService {
     public static final String RETURN_ENABLED = "RETURN_ENABLED";
     public static final String RETURN_WINDOW_DAYS = "RETURN_WINDOW_DAYS";
     public static final String HOME_HERO_IMAGE_KEY = "HOME_HERO_IMAGE_KEY";
+    public static final String RETURN_REASONS = "RETURN_REASONS";
 
     public static final String HOME_HERO_PREFIX = "homepage/";
     public static final String HOME_HERO_IMAGE_URL = "/api/v1/config/store/hero-image";
 
     private final StoreConfigurationRepository repository;
     private final S3StorageService s3StorageService;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public StoreConfigView publicView() {
@@ -44,7 +49,8 @@ public class StoreConfigurationService {
                 parseBoolean(values.get(COD_ENABLED), true),
                 parseBoolean(values.get(RETURN_ENABLED), true),
                 parseInt(values.get(RETURN_WINDOW_DAYS), 7),
-                heroImageUrlOrNull(values.get(HOME_HERO_IMAGE_KEY)));
+                heroImageUrlOrNull(values.get(HOME_HERO_IMAGE_KEY)),
+                parseReturnReasons(values.get(RETURN_REASONS)));
     }
 
     @Transactional(readOnly = true)
@@ -162,5 +168,45 @@ public class StoreConfigurationService {
         String v = value.trim().toLowerCase(Locale.ROOT);
         return v.equals("true") || v.equals("false") || v.equals("1") || v.equals("0")
                 || v.equals("yes") || v.equals("no");
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReturnReasonOption> returnReasons() {
+        return parseReturnReasons(rawValue(RETURN_REASONS));
+    }
+
+    public void requireValidReturnReason(String code) {
+        String normalized = code == null ? "" : code.trim().toLowerCase(Locale.ROOT);
+        boolean ok = returnReasons().stream().anyMatch(r -> r.code().equals(normalized));
+        if (!ok) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Select a valid return reason");
+        }
+    }
+
+    private List<ReturnReasonOption> parseReturnReasons(String raw) {
+        List<ReturnReasonOption> defaults = List.of(
+                new ReturnReasonOption("damaged", "Damaged or defective"),
+                new ReturnReasonOption("wrong_item", "Wrong item received"),
+                new ReturnReasonOption("size_issue", "Size / fit issue"),
+                new ReturnReasonOption("not_as_described", "Not as described"),
+                new ReturnReasonOption("changed_mind", "Changed my mind"));
+        if (raw == null || raw.isBlank()) {
+            return defaults;
+        }
+        try {
+            List<ReturnReasonOption> parsed = objectMapper.readValue(raw, new TypeReference<>() {});
+            if (parsed == null || parsed.isEmpty()) {
+                return defaults;
+            }
+            return parsed.stream()
+                    .filter(r -> r != null && r.code() != null && !r.code().isBlank())
+                    .map(r -> new ReturnReasonOption(
+                            r.code().trim().toLowerCase(Locale.ROOT),
+                            r.label() == null || r.label().isBlank() ? r.code() : r.label().trim()))
+                    .limit(5)
+                    .toList();
+        } catch (Exception e) {
+            return defaults;
+        }
     }
 }

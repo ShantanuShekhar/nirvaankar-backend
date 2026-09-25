@@ -35,7 +35,9 @@ import com.nirvaankar.marketplace.ordering.repository.OrderItemTaxRepository;
 import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.CheckoutPreview;
 import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.CheckoutSource;
 import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.OrderItemView;
+import com.nirvaankar.marketplace.fulfilment.service.CustomerReturnService;
 import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.OrderView;
+import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.ReturnEligibility;
 import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.PaymentMethod;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +68,7 @@ public class CheckoutService {
     private final CustomerOrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemTaxRepository orderItemTaxRepository;
+    private final CustomerReturnService customerReturnService;
     private final BuyNowCheckoutRepository buyNowCheckoutRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     private final StoreConfigurationService storeConfigurationService;
@@ -177,7 +180,7 @@ public class CheckoutService {
                             .map(t -> new TaxLine(t.getTaxType(), t.getRate(), t.getTaxableAmountMinor(),
                                     t.getTaxAmountMinor(), t.getHsnCode()))
                             .toList();
-                    return new OrderItemView(item.getVariantSku(), item.getProductName(), item.getQuantity(),
+                    return new OrderItemView(item.getId(), item.getVariantSku(), item.getProductName(), item.getQuantity(),
                             item.getUnitPriceMinor(), item.getTaxMinor(), item.getLineTotalMinor(), taxLines);
                 })
                 .toList();
@@ -203,9 +206,10 @@ public class CheckoutService {
                 order.getPaymentGatewayFeeMinor(),
                 CheckoutPriceDetails.PROTECT_PROMISE_FEE_LABEL,
                 order.getCurrency());
+        ReturnEligibility returnEligibility = customerReturnService.eligibilityForOrder(order);
         return new OrderView(order.getPublicId(), order.getOrderNumber(), order.getOrderStatus(),
                 order.getPaymentStatus(), totals, priceDetails, order.getShippingAddress(), itemViews,
-                order.getPlacedAt(), null, null, null);
+                order.getPlacedAt(), null, null, null, returnEligibility);
     }
 
     private static long estimateAncillaryTax(CustomerOrder order) {

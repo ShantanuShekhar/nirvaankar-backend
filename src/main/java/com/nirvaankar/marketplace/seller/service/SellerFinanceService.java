@@ -2,16 +2,20 @@ package com.nirvaankar.marketplace.seller.service;
 
 import com.nirvaankar.marketplace.common.error.ApiException;
 import com.nirvaankar.marketplace.common.error.ErrorCode;
+import com.nirvaankar.marketplace.payment.gateway.RazorpayRouteService;
 import com.nirvaankar.marketplace.seller.service.dto.SellerOpsDtos.PaymentSummary;
+import com.nirvaankar.marketplace.seller.service.dto.SellerOpsDtos.SettlementLineRow;
 import com.nirvaankar.marketplace.seller.service.dto.SellerOpsDtos.PayoutRow;
 import com.nirvaankar.marketplace.seller.service.dto.SellerOpsDtos.ReturnActionRequest;
 import com.nirvaankar.marketplace.seller.service.dto.SellerOpsDtos.ReturnRow;
+import com.nirvaankar.marketplace.seller.service.dto.SellerOpsDtos.UpcomingSettlementDay;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -20,6 +24,8 @@ public class SellerFinanceService {
 
     private final JdbcTemplate jdbcTemplate;
     private final SellerOnboardingService onboardingService;
+    private final SellerSettlementService settlementService;
+    private final RazorpayRouteService razorpayRouteService;
 
     @Transactional(readOnly = true)
     public List<ReturnRow> listReturns(Long sellerId, String status) {
@@ -83,6 +89,9 @@ public class SellerFinanceService {
         };
         jdbcTemplate.update("UPDATE return_requests SET status = ?, updated_at = UTC_TIMESTAMP(6) WHERE id = ?",
                 newStatus, returnId);
+        if ("approved".equals(newStatus)) {
+            finalizeRefundsForReturn(returnId);
+        }
         return listReturns(sellerId, null).stream()
                 .filter(r -> r.returnId() == returnId)
                 .findFirst()
@@ -130,15 +139,120 @@ public class SellerFinanceService {
                 rs.getString("currency"),
                 rs.getTimestamp("processed_at") == null ? null : rs.getTimestamp("processed_at").toInstant()
         ), sellerId);
+        List<UpcomingSettlementDay> upcomingDays = settlementService.upcomingSevenDays(SellerSettlementService.todayIst())
+                .stream()
+                .map(d -> new UpcomingSettlementDay(d.date(), d.workingDay(), d.skipReason()))
+                .toList();
+        String note = upcomingDays.stream().anyMatch(d -> !d.workingDay())
+                ? "Eligible settlement is paid on the next working day. Weekends and configured holidays are skipped."
+                : "Eligible settlement is scheduled for the next working settlement day.";
+        List<SettlementLineRow> lines = listSettlementLines(sellerId);
         return new PaymentSummary(
                 pending == null ? 0 : pending,
                 upcoming == null ? 0 : upcoming,
                 settled == null ? 0 : settled,
                 refunds == null ? 0 : refunds,
                 "INR",
-                rows);
+                rows,
+                note,
+                upcomingDays,
+                lines);
     }
 
+    
+    private void finalizeRefundsForReturn(long returnId) {
+        List<Map<String, Object>> pending = jdbcTemplate.queryForList("""
+                SELECT r.id AS refund_id, r.amount_minor, r.status, p.gateway_payment_id
+                  FROM refunds r
+                  JOIN payments p ON p.id = r.payment_id
+                 WHERE r.return_request_id = ? AND r.status = 'pending'
+                """, returnId);
+        for (Map<String, Object> row : pending) {
+            long refundId = ((Number) row.get("refund_id")).longValue();
+            long amount = ((Number) row.get("amount_minor")).longValue();
+            String gatewayPaymentId = row.get("gateway_payment_id") == null
+                    ? null : String.valueOf(row.get("gateway_payment_id"));
+            jdbcTemplate.update("""
+                    UPDATE refunds SET status = 'processing', updated_at = UTC_TIMESTAMP(6) WHERE id = ?
+                    """, refundId);
+            try {
+                if (gatewayPaymentId != null && !gatewayPaymentId.isBlank() && razorpayRouteService.configured()) {
+                    var result = razorpayRouteService.createRefund(gatewayPaymentId, amount, "return-" + returnId);
+                    jdbcTemplate.update("""
+                            UPDATE refunds
+                               SET status = 'completed',
+                                   gateway_refund_id = ?,
+                                   processed_at = UTC_TIMESTAMP(6),
+                                   updated_at = UTC_TIMESTAMP(6)
+                             WHERE id = ?
+                            """, result.refundId(), refundId);
+                } else {
+                    jdbcTemplate.update("""
+                            UPDATE refunds
+                               SET status = 'completed',
+                                   processed_at = UTC_TIMESTAMP(6),
+                                   updated_at = UTC_TIMESTAMP(6)
+                             WHERE id = ?
+                            """, refundId);
+                }
+            } catch (Exception ex) {
+                jdbcTemplate.update("""
+                        UPDATE refunds SET status = 'failed', updated_at = UTC_TIMESTAMP(6) WHERE id = ?
+                        """, refundId);
+            }
+        }
+        jdbcTemplate.update("""
+                UPDATE return_requests
+                   SET status = 'refunded', resolved_at = UTC_TIMESTAMP(6), updated_at = UTC_TIMESTAMP(6)
+                 WHERE id = ?
+                   AND EXISTS (SELECT 1 FROM refunds r WHERE r.return_request_id = ? AND r.status = 'completed')
+                """, returnId, returnId);
+    }
+
+    private List<SettlementLineRow> listSettlementLines(Long sellerId) {
+        return jdbcTemplate.query("""
+                SELECT pi.id AS payout_item_id, pi.payout_id, pi.order_item_id, o.order_number,
+                       oi.product_name, oi.variant_sku,
+                       oi.line_total_minor AS product_amount_minor,
+                       0 AS shipping_minor,
+                       oi.commission_minor AS platform_fee_minor,
+                       oi.tax_minor,
+                       oi.commission_minor,
+                       CASE WHEN EXISTS (
+                            SELECT 1 FROM return_items ri
+                              JOIN return_requests rr ON rr.id = ri.return_request_id
+                             WHERE ri.order_item_id = oi.id
+                               AND rr.status IN ('approved','received','refunded','completed')
+                       ) THEN oi.line_total_minor ELSE 0 END AS return_deduction_minor,
+                       pi.amount_minor AS seller_payable_minor,
+                       sp.status AS settlement_status,
+                       sp.currency
+                  FROM payout_items pi
+                  JOIN seller_payouts sp ON sp.id = pi.payout_id
+                  JOIN order_items oi ON oi.id = pi.order_item_id
+                  JOIN orders o ON o.id = oi.order_id
+                 WHERE sp.seller_id = ?
+                   AND pi.entry_type = 'sale'
+                 ORDER BY pi.id DESC
+                 LIMIT 100
+                """, (rs, i) -> new SettlementLineRow(
+                rs.getLong("payout_item_id"),
+                rs.getLong("payout_id"),
+                rs.getLong("order_item_id"),
+                rs.getString("order_number"),
+                rs.getString("product_name"),
+                rs.getString("variant_sku"),
+                rs.getLong("product_amount_minor"),
+                rs.getLong("shipping_minor"),
+                rs.getLong("platform_fee_minor"),
+                rs.getLong("tax_minor"),
+                rs.getLong("commission_minor"),
+                rs.getLong("return_deduction_minor"),
+                rs.getLong("seller_payable_minor"),
+                rs.getString("settlement_status"),
+                rs.getString("currency")
+        ), sellerId);
+    }
     private static UUID uuidFromBytes(byte[] bytes) {
         if (bytes == null || bytes.length != 16) {
             return UUID.randomUUID();

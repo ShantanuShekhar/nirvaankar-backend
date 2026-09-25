@@ -237,13 +237,37 @@ public final class SellerOpsDtos {
             Instant processedAt) {
     }
 
+    public record SettlementLineRow(
+            long payoutItemId,
+            long payoutId,
+            long orderItemId,
+            String orderNumber,
+            String productName,
+            String sku,
+            long productAmountMinor,
+            long shippingMinor,
+            long platformFeeMinor,
+            long taxMinor,
+            long commissionMinor,
+            long returnDeductionMinor,
+            long sellerPayableMinor,
+            String settlementStatus,
+            String currency) {
+    }
+
     public record PaymentSummary(
             long pendingSettlementMinor,
             long upcomingSettlementMinor,
             long settledMinor,
             long refundsMinor,
             String currency,
-            List<PayoutRow> recentPayouts) {
+            List<PayoutRow> recentPayouts,
+            String settlementNote,
+            List<UpcomingSettlementDay> upcomingDays,
+            List<SettlementLineRow> settlementLines) {
+    }
+
+    public record UpcomingSettlementDay(java.time.LocalDate date, boolean workingDay, String skipReason) {
     }
 
     public record StoreView(

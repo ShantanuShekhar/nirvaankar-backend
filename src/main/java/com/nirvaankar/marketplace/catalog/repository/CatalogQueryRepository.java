@@ -51,6 +51,9 @@ public interface CatalogQueryRepository extends Repository<Product, Long> {
               JOIN sellers s ON s.id = p.seller_id
                AND s.status IN ('active', 'pending')
                AND s.deleted_at IS NULL
+               AND NOT EXISTS (
+                    SELECT 1 FROM seller_platform_fee_invoices fee
+                     WHERE fee.seller_id = s.id AND fee.status = 'overdue')
               JOIN product_variants pv ON pv.id = (
                     SELECT pv2.id FROM product_variants pv2
                      WHERE pv2.product_id = p.id AND pv2.deleted_at IS NULL AND pv2.is_active = TRUE
@@ -124,6 +127,9 @@ public interface CatalogQueryRepository extends Repository<Product, Long> {
               JOIN sellers s ON s.id = p.seller_id
                AND s.status IN ('active', 'pending')
                AND s.deleted_at IS NULL
+               AND NOT EXISTS (
+                    SELECT 1 FROM seller_platform_fee_invoices fee
+                     WHERE fee.seller_id = s.id AND fee.status = 'overdue')
               JOIN product_variants pv ON pv.id = (
                     SELECT pv2.id FROM product_variants pv2
                      WHERE pv2.product_id = p.id AND pv2.deleted_at IS NULL AND pv2.is_active = TRUE
@@ -210,6 +216,9 @@ public interface CatalogQueryRepository extends Repository<Product, Long> {
               JOIN sellers s ON s.id = p.seller_id
                AND s.status IN ('active', 'pending')
                AND s.deleted_at IS NULL
+               AND NOT EXISTS (
+                    SELECT 1 FROM seller_platform_fee_invoices fee
+                     WHERE fee.seller_id = s.id AND fee.status = 'overdue')
               JOIN product_variants pv ON pv.id = (
                     SELECT pv2.id FROM product_variants pv2
                      WHERE pv2.product_id = p.id AND pv2.deleted_at IS NULL AND pv2.is_active = TRUE

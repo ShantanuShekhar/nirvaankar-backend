@@ -69,6 +69,7 @@ public final class OrderDtos {
     }
 
     public record OrderItemView(
+            long orderItemId,
             String sku,
             String productName,
             int quantity,
@@ -90,11 +91,24 @@ public final class OrderDtos {
             Instant placedAt,
             UUID paymentId,
             String gatewayPaymentId,
-            String gatewayOrderId) {
+            String gatewayOrderId,
+            ReturnEligibility returnEligibility) {
 
         public OrderView withPayment(UUID paymentId, String gatewayPaymentId, String gatewayOrderId) {
             return new OrderView(orderId, orderNumber, orderStatus, paymentStatus, totals, priceDetails,
-                    shippingAddress, items, placedAt, paymentId, gatewayPaymentId, gatewayOrderId);
+                    shippingAddress, items, placedAt, paymentId, gatewayPaymentId, gatewayOrderId, returnEligibility);
+        }
+    }
+
+    public record ReturnEligibility(
+            boolean eligible,
+            boolean returnEnabled,
+            int returnWindowDays,
+            Instant deliveredAt,
+            Instant eligibleUntil,
+            String message) {
+        public static ReturnEligibility disabled(String message) {
+            return new ReturnEligibility(false, false, 0, null, null, message);
         }
     }
 
@@ -147,6 +161,9 @@ public final class OrderDtos {
             String orderNumber,
             String status,
             String reasonCode,
+            String comment,
+            long refundAmountMinor,
+            String currency,
             Instant createdAt) {
     }
 }
