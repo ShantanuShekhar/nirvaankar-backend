@@ -12,6 +12,7 @@ import com.nirvaankar.marketplace.ordering.domain.CustomerOrder;
 import com.nirvaankar.marketplace.ordering.repository.CustomerOrderRepository;
 import com.nirvaankar.marketplace.ordering.service.CheckoutService;
 import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.OrderView;
+import com.nirvaankar.marketplace.ordering.service.dto.OrderDtos.ReturnEligibility;
 import com.nirvaankar.marketplace.payment.domain.Payment;
 import com.nirvaankar.marketplace.payment.gateway.PaymentGatewayResolver;
 import com.nirvaankar.marketplace.payment.gateway.RazorpayPaymentGateway;
@@ -93,7 +94,8 @@ class RazorpayPaymentServiceTest {
         when(checkoutService.toView(any())).thenAnswer(invocation -> {
             CustomerOrder o = invocation.getArgument(0);
             return new OrderView(orderPublicId, o.getOrderNumber(), o.getOrderStatus(), o.getPaymentStatus(),
-                    Totals.of(40000, 0, 5000, 4900, "INR"), null, Map.of(), List.of(), null, null, null, null);
+                    Totals.of(40000, 0, 5000, 4900, "INR"), null, Map.of(), List.of(), null, null, null, null,
+                    ReturnEligibility.disabled("Returns not evaluated in payment test"));
         });
         when(orderRepository.findByPublicId(orderPublicId)).thenReturn(Optional.of(order));
         when(paymentRepository.findAllByOrderIdOrderByIdDesc(9L)).thenReturn(List.of(payment));

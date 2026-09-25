@@ -31,7 +31,8 @@
 		<!-- Empty by default: local `mvn test` still runs Testcontainers when
 		Docker works.
              Docker image builds set this via -Pdocker-build. -->
-		<surefire.excludedGroups></surefire.excludedGroups>
+		<!-- integration: excluded by default (needs Docker). Use -Pintegration to run. -->
+		<surefire.excludedGroups>integration</surefire.excludedGroups>
 	</properties>
 
 	<dependencyManagement>
@@ -250,10 +251,11 @@
 					</compilerArgs>
 				</configuration>
 			</plugin>
-			<!--
-              Unit + ArchUnit tests run by default.
-              Testcontainers integration tests are tagged "integration" and can be
-              excluded for Docker image builds via -Pdocker-build (no Docker-in-Docker).
+            <!--
+              Unit + ArchUnit run by default (integration group excluded; no Docker required).
+              Testcontainers tests use @Tag("integration") on {@link IntegrationTest}.
+              Run them with: mvn test -Pintegration  (Docker daemon must be running).
+              Docker image builds use -Pdocker-build (same exclusion).
             -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

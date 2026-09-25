@@ -12,9 +12,11 @@ import java.lang.annotation.Target;
 /**
  * Marks Testcontainers-backed Spring Boot tests.
  * <p>
- * These require a working Docker daemon and must not run inside a Docker image
- * build (Docker-in-Docker). Exclude with {@code -Pdocker-build} /
- * {@code -Dsurefire.excludedGroups=integration}.
+ * These require a working Docker daemon. They are excluded from default {@code mvn test}
+ * (see {@code surefire.excludedGroups=integration} in the root POM). Run with
+ * {@code mvn test -Pintegration} when Docker is available.
+ * <p>
+ * Docker image builds use {@code -Pdocker-build} (same exclusion, no Docker-in-Docker).
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
